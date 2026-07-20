@@ -15,7 +15,7 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gst", "1.0")
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk
 
-from engine import AudioEngineError, SeparationCancelled, SeparationEngine, SeparationResult
+from engine import AudioEngineError, SeparationCancelled, SeparationEngine, SeparationResult, STEM_LABELS, STEM_ORDER
 from player import MixerPlayer
 
 
@@ -159,6 +159,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_states: list[dict] = []
         self.cancel_event: threading.Event | None = None
         self.youtube_temp_dir: Path | None = None
+        self.track_checks: dict[str, Gtk.CheckButton] = {}
         self._busy = False
         self._updating_timeline = False
 
@@ -290,34 +291,26 @@ class MainWindow(Gtk.ApplicationWindow):
         extract_header.append(none_button)
         extract_card.append(extract_header)
         extract_card.append(label("Solo mostramos salidas que el motor actual puede producir de forma real.", "card-caption", wrap=True))
-        self.vocal_check = Gtk.CheckButton(label="Voces")
-        self.vocal_check.set_active(True)
-        self.vocal_check.connect("toggled", self._selection_changed)
-        extract_card.append(self.vocal_check)
-        voice_note = label("Centro estéreo · procesamiento local", "card-caption")
-        voice_note.set_margin_start(31)
-        extract_card.append(voice_note)
+        extract_card.append(label("Selecciona las pistas que quieres conservar. Other se calcula como complemento.", "card-caption", wrap=True))
+        for key in ("vocals", "drums", "bass", "guitar", "piano"):
+            display_name, kind, _color = STEM_LABELS[key]
+            check = Gtk.CheckButton(label=display_name)
+            check.set_active(True)
+            check.connect("toggled", self._selection_changed)
+            self.track_checks[key] = check
+            extract_card.append(check)
+            note = label(kind, "card-caption")
+            note.set_margin_start(31)
+            extract_card.append(note)
         other_row = Gtk.CheckButton(label="Other")
         other_row.set_active(True)
         other_row.set_sensitive(False)
-        other_row.set_tooltip_text("Se genera siempre como complemento de Voces para reconstruir la mezcla")
+        other_row.set_tooltip_text("Se genera siempre sumando el Other del modelo y las pistas no seleccionadas")
+        self.track_checks["other"] = other_row
         extract_card.append(other_row)
-        other_note = label("Complemento automático de la mezcla", "card-caption")
+        other_note = label("Complemento automático de las categorías no seleccionadas", "card-caption")
         other_note.set_margin_start(31)
         extract_card.append(other_note)
-
-        unavailable = label("MODELOS PENDIENTES", "eyebrow")
-        unavailable.set_margin_top(7)
-        extract_card.append(unavailable)
-        for name in ("Batería completa", "Bajo", "Guitarras", "Piano y teclados", "Voz principal / coros", "Ruido y efectos"):
-            row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=7)
-            row.add_css_class("disabled-row")
-            row.append(label("○", "card-caption"))
-            row.append(label(name, "card-caption"))
-            row.append(label("sin modelo", "card-caption"))
-            row.get_last_child().set_hexpand(True)
-            row.get_last_child().set_xalign(1)
-            extract_card.append(row)
         body.append(extract_card)
 
         output_card = self._card()
@@ -343,7 +336,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.sidebar_status = label("Selecciona un audio y una carpeta para comenzar.", "helper", wrap=True)
         body.append(self.sidebar_status)
 
-        note = label("Uso personal: acceso completo, sin cuenta ni modalidad premium. El motor estéreo es local y verificable.", "license-note", wrap=True)
+        note = label("Uso personal: acceso completo, sin premium. Motor local Demucs 6s para voces, batería, bajo, guitarra, piano y Other.", "license-note", wrap=True)
         body.append(note)
         return sidebar
 
@@ -441,7 +434,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         footer.append(label("STEMFORGE / UBUNTU", "eyebrow"))
-        footer.append(label("·  Centro/lados v1  ·  Audio local  ·  WAV PCM", "section-note"))
+        footer.append(label("·  Demucs 6s CPU  ·  Audio local  ·  WAV PCM", "section-note"))
         content.append(footer)
         return outer
 
@@ -555,11 +548,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self.audio_info = info
         self.file_meta.set_text(f"{info.format_name}  ·  {info.duration_label}  ·  {info.sample_rate_label}  ·  {info.channels} ch")
         if info.channels == 2:
-            self._set_status("Mezcla lista", "Estéreo detectado · puedes preparar Voces + Other", "LISTO")
+            self._set_status("Mezcla lista", "Estéreo detectado · Demucs puede preparar seis categorías", "LISTO")
             self.sidebar_status.set_text("Elige una carpeta de trabajo y pulsa separar.")
         else:
-            self._set_status("Necesito una mezcla estéreo", "El motor local actual trabaja con 2 canales", "REVISAR", pending=True)
-            self.sidebar_status.set_text("Este build necesita una entrada estéreo para producir un complemento real.")
+            self._set_status("Necesito una mezcla estéreo", "El motor Demucs actual trabaja con 2 canales", "REVISAR", pending=True)
+            self.sidebar_status.set_text("Este build necesita una entrada estéreo para separar seis categorías reales.")
         self._update_start_state()
         return False
 
@@ -578,14 +571,17 @@ class MainWindow(Gtk.ApplicationWindow):
             self._update_start_state()
 
     def _set_available(self, active: bool) -> None:
-        self.vocal_check.set_active(active)
+        for key, check in self.track_checks.items():
+            if key != "other":
+                check.set_active(active)
         self._selection_changed()
 
     def _selection_changed(self, *_args) -> None:
         self._update_start_state()
 
     def _update_start_state(self) -> None:
-        ready = bool(self.audio_info and self.output_folder and self.vocal_check.get_active() and self.audio_info.channels == 2)
+        selected = any(check.get_active() for key, check in self.track_checks.items() if key != "other")
+        ready = bool(self.audio_info and self.output_folder and selected and self.audio_info.channels == 2)
         self.separate_button.set_sensitive(ready or self._busy)
 
     def _start_or_cancel(self, _button) -> None:
@@ -604,16 +600,17 @@ class MainWindow(Gtk.ApplicationWindow):
         self.separate_button.set_label("Cancelar separación")
         self.progress.set_visible(True)
         self.progress.set_fraction(0.0)
-        self._set_status("Preparando separación", "El audio se procesa únicamente en este equipo", "PROCESANDO")
+        self._set_status("Preparando separación", "Demucs 6s se ejecuta únicamente en este equipo", "PROCESANDO")
         self.sidebar_status.set_text("Puedes cancelar; se eliminarán los archivos parciales.")
         threading.Thread(target=self._separation_worker, daemon=True).start()
 
     def _separation_worker(self) -> None:
         try:
+            selected = tuple(key for key, check in self.track_checks.items() if check.get_active())
             result = self.engine.separate(
                 self.input_path,
                 self.output_folder,
-                ("vocals",),
+                selected,
                 progress=lambda value, phase: GLib.idle_add(self._operation_progress, value, phase),
                 cancel_event=self.cancel_event,
             )
@@ -638,7 +635,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.progress.set_visible(False)
         self._load_stems(result)
         self._cleanup_youtube_temp()
-        self._set_status("Pistas listas para escuchar", "Separación local completada sin archivos silenciosos", "LISTO")
+        self._set_status("Pistas listas para escuchar", "Separación Demucs 6s completada", "LISTO")
         self.sidebar_status.set_text(f"Guardado en {result.output_dir}")
         self.export_button.set_sensitive(True)
         self._update_start_state()
@@ -647,7 +644,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _load_stems(self, result: SeparationResult) -> None:
         self.player.close()
         self.track_states = [
-            {"name": stem.name, "path": stem.path, "color": stem.color, "kind": "señal central" if stem.name == "Voces" else "complemento real", "volume": 1.0, "mute": False, "solo": False}
+            {"name": stem.name, "path": stem.path, "color": stem.color, "kind": stem.kind, "volume": 1.0, "mute": False, "solo": False}
             for stem in result.stems
         ]
         while child := self.track_list.get_first_child():

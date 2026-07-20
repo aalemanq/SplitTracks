@@ -1,15 +1,20 @@
-StemForge 0.2.0
+StemForge 0.3.0 — personal-use build
 
-Personal-use build. No AI model weights are bundled.
+Runtime installed by setup-model.sh:
+- PyTorch 2.11.0+cpu
+- Torchaudio 2.11.0+cpu
+- Demucs 4.1.0
+- NumPy and SciPy
 
-Bundled third-party executable:
-- yt-dlp 2026.07.04, downloaded from the official yt-dlp release endpoint.
-  It is used only to download a single YouTube video as temporary local WAV audio.
+Bundled executable:
+- yt-dlp 2026.07.04 in bin/yt-dlp
 
-Runtime dependencies discovered from Ubuntu:
+System runtime:
 - Python 3
 - GTK 4 via PyGObject
 - GStreamer 1.x
 - FFmpeg
 
-The Ubuntu package manager supplies the licenses for runtime dependencies.
+Model:
+- htdemucs_6s: vocals, drums, bass, guitar, piano, other
+- Source: https://github.com/facebookresearch/demucs

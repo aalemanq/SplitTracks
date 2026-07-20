@@ -1,7 +1,14 @@
 {
   "application": "StemForge",
-  "status": "no-model-weights-included",
-  "models": [],
-  "policy": "fail-closed",
-  "note": "The current Ubuntu build uses a deterministic FFmpeg stereo transform. No model weights are bundled until code and weight licenses permit use, inclusion and redistribution."
+  "status": "local-model-enabled",
+  "models": [
+    {
+      "id": "htdemucs_6s",
+      "runtime": "Demucs 4.1.0 + PyTorch CPU",
+      "outputs": ["vocals", "drums", "bass", "guitar", "piano", "other"],
+      "source": "https://github.com/facebookresearch/demucs",
+      "cache": "~/.cache/torch and ~/.cache/huggingface",
+      "notes": "Piano and guitar may have more bleed/artifacts than the main four stems."
+    }
+  ]
 }

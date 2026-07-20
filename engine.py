@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Local audio operations used by StemForge.
-
-The first Linux build deliberately uses a transparent stereo center/side
-transform instead of shipping model weights with unclear redistribution
-rights.  The engine is kept separate from the UI so an approved local ML
-backend can be added later without changing the mixer workflow.
-"""
+"""Local audio operations used by StemForge, including Demucs inference."""
 
 from __future__ import annotations
 
@@ -15,6 +9,7 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 import tempfile
 from urllib.parse import urlparse
 from dataclasses import dataclass
@@ -74,6 +69,17 @@ class YoutubeDownloadResult:
 
 ProgressCallback = Callable[[float, str], None]
 
+MODEL_NAME = "htdemucs_6s"
+STEM_ORDER = ("vocals", "drums", "bass", "guitar", "piano", "other")
+STEM_LABELS = {
+    "vocals": ("Voces", "modelo Demucs · señal vocal", "#f4a7b9"),
+    "drums": ("Batería completa", "modelo Demucs · batería", "#f4c98a"),
+    "bass": ("Bajo", "modelo Demucs · bajo", "#a6b8ff"),
+    "guitar": ("Guitarra", "modelo Demucs · guitarra", "#d2b2ff"),
+    "piano": ("Piano y teclados", "modelo Demucs · piano", "#9ee7e0"),
+    "other": ("Other", "complemento Demucs", "#9ba4b6"),
+}
+
 
 def _run(command: list[str], *, capture_output: bool = True) -> subprocess.CompletedProcess[str]:
     try:
@@ -105,7 +111,7 @@ def _sha256(path: Path) -> str:
 
 
 class SeparationEngine:
-    """FFmpeg-backed, local and deterministic audio processing."""
+    """Local audio probing, Demucs separation, rendering and mix export."""
 
     def probe(self, path: str | Path) -> AudioInfo:
         audio_path = Path(path).expanduser().resolve()
@@ -258,18 +264,18 @@ class SeparationEngine:
         cancel_event=None,
     ) -> SeparationResult:
         info = self.probe(input_path)
-        selected = set(selected_categories)
-        if "vocals" not in selected:
-            raise AudioEngineError(
-                "La versión actual necesita seleccionar Voces: es la única separación local disponible."
-            )
+        selected = set(selected_categories) & set(STEM_ORDER)
+        if not selected:
+            raise AudioEngineError("Selecciona al menos una pista para separar.")
         if info.channels != 2:
-            raise AudioEngineError(
-                "El motor estéreo actual necesita una mezcla de 2 canales. "
-                "La arquitectura queda preparada para añadir modelos multicanal."
-            )
+            raise AudioEngineError("El modelo multistem actual necesita una mezcla estéreo de 2 canales.")
         if info.duration <= 0:
             raise AudioEngineError("La pista no tiene una duración válida para procesarse.")
+        separator_python = self._find_separator_python()
+        if not separator_python:
+            raise AudioEngineError(
+                "No encuentro el entorno ML de StemForge. Ejecuta ./setup-model.sh para instalar Demucs en CPU."
+            )
 
         destination_path = Path(destination).expanduser().resolve()
         destination_path.mkdir(parents=True, exist_ok=True)
@@ -279,37 +285,30 @@ class SeparationEngine:
             folder = destination_path / f"StemForge - {_safe_name(info.path.stem)} ({suffix})"
             suffix += 1
         folder.mkdir(parents=True)
-
-        vocals = folder / "Voces.wav"
-        other = folder / "Other.wav"
-        filter_graph = (
-            "[0:a]pan=stereo|c0=0.5*c0+0.5*c1|c1=0.5*c0+0.5*c1[voces];"
-            "[0:a]pan=stereo|c0=0.5*c0-0.5*c1|c1=-0.5*c0+0.5*c1[other]"
-        )
+        raw_dir = folder / ".model-output"
         command = [
-            "ffmpeg",
-            "-hide_banner",
-            "-nostdin",
-            "-y",
-            "-progress",
-            "pipe:1",
-            "-i",
+            str(separator_python),
+            "-m",
+            "demucs.separate",
+            "-n",
+            MODEL_NAME,
+            "-d",
+            "cpu",
+            "--segment",
+            "7",
+            "--shifts",
+            "1",
+            "--overlap",
+            "0.25",
+            "--int24",
+            "-j",
+            "1",
+            "-o",
+            str(raw_dir),
             str(info.path),
-            "-filter_complex",
-            filter_graph,
-            "-map",
-            "[voces]",
-            "-c:a",
-            "pcm_s24le",
-            str(vocals),
-            "-map",
-            "[other]",
-            "-c:a",
-            "pcm_s24le",
-            str(other),
         ]
         if progress:
-            progress(0.04, "Preparando el motor local")
+            progress(0.03, "Cargando modelo Demucs 6s")
         process = subprocess.Popen(
             command,
             stdout=subprocess.PIPE,
@@ -318,25 +317,27 @@ class SeparationEngine:
             encoding="utf-8",
             errors="replace",
             bufsize=1,
+            env={**os.environ, "PYTHONUNBUFFERED": "1"},
         )
-        last_progress = 0.04
-        output_time = 0.0
+        output_lines: list[str] = []
         try:
             assert process.stdout is not None
-            for line in process.stdout:
+            for raw_line in process.stdout:
+                line = raw_line.strip()
+                if line:
+                    output_lines.append(line)
                 if cancel_event is not None and cancel_event.is_set():
                     process.terminate()
-                    process.wait(timeout=5)
-                    raise SeparationCancelled("Separación cancelada. No se han conservado archivos parciales.")
-                line = line.strip()
-                if line.startswith("out_time_ms="):
                     try:
-                        output_time = int(line.split("=", 1)[1]) / 1_000_000
-                    except ValueError:
-                        pass
-                    last_progress = min(0.92, 0.08 + 0.84 * output_time / info.duration)
-                    if progress:
-                        progress(last_progress, "Separando centro y lados de la mezcla")
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        process.kill()
+                        process.wait()
+                    raise SeparationCancelled("Separación cancelada. No se han conservado archivos parciales.")
+                match = re.search(r"(?:^|\s)(\d{1,3})%", line)
+                if match and progress:
+                    percent = min(100, int(match.group(1))) / 100
+                    progress(0.08 + percent * 0.70, "Separando seis pistas con Demucs")
             return_code = process.wait()
         except SeparationCancelled:
             shutil.rmtree(folder, ignore_errors=True)
@@ -347,40 +348,50 @@ class SeparationEngine:
             shutil.rmtree(folder, ignore_errors=True)
             raise
 
-        if return_code != 0 or not vocals.is_file() or not other.is_file():
+        if return_code != 0:
             shutil.rmtree(folder, ignore_errors=True)
-            raise AudioEngineError(
-                "FFmpeg no pudo completar la separación. Revisa el formato y los permisos de la carpeta."
-            )
+            raise AudioEngineError(self._demucs_error(output_lines))
 
-        if progress:
-            progress(0.94, "Verificando que ambas pistas contienen señal")
-        if not self._has_audio_signal(vocals) or not self._has_audio_signal(other):
+        raw_stems = {path.stem.lower(): path for path in raw_dir.rglob("*.wav")}
+        missing = [name for name in STEM_ORDER if name not in raw_stems]
+        if missing:
             shutil.rmtree(folder, ignore_errors=True)
-            raise AudioEngineError(
-                "La mezcla no contiene suficiente información estéreo para producir dos pistas reales. "
-                "No se ha creado un archivo silencioso para aparentar una separación."
-            )
+            raise AudioEngineError("Demucs no generó todas las pistas esperadas: " + ", ".join(missing))
 
-        stems = (
-            StemFile("Voces", vocals, "#f4a7b9", "available"),
-            StemFile("Other", other, "#a6b8ff", "complement"),
-        )
+        final_stems: list[StemFile] = []
+        requested = [name for name in STEM_ORDER if name in selected and name != "other"]
+        for index, name in enumerate(requested):
+            display_name, kind, color = STEM_LABELS[name]
+            output = folder / f"{display_name}.wav"
+            self._render_audio((raw_stems[name],), output, info.sample_rate, info.channels)
+            final_stems.append(StemFile(display_name, output, color, kind))
+            if progress:
+                progress(0.80 + 0.10 * (index + 1) / max(1, len(requested) + 1), f"Preparando {display_name}")
+
+        complement_inputs = [raw_stems["other"]]
+        complement_inputs.extend(raw_stems[name] for name in STEM_ORDER if name != "other" and name not in selected)
+        other_output = folder / "Other.wav"
+        self._render_audio(tuple(complement_inputs), other_output, info.sample_rate, info.channels)
+        final_stems.append(StemFile("Other", other_output, STEM_LABELS["other"][2], "complemento de las pistas no seleccionadas"))
+        shutil.rmtree(raw_dir, ignore_errors=True)
+
+        stems_tuple = tuple(final_stems)
         report_path = folder / "INFORME.md"
-        report_path.write_text(self._report(info, folder, stems), encoding="utf-8")
+        report_path.write_text(self._report(info, folder, stems_tuple, selected), encoding="utf-8")
         (folder / "PROVENANCE.json").write_text(
             json.dumps(
                 {
                     "application": "StemForge",
-                    "method": "stereo-center-side-v1",
-                    "method_type": "deterministic DSP, not machine learning",
+                    "method": MODEL_NAME,
+                    "method_type": "local neural music source separation",
                     "input": str(info.path),
                     "input_sha256": _sha256(info.path),
+                    "selected_categories": sorted(selected),
+                    "model_cache": str(Path.home() / ".cache"),
                     "outputs": [
                         {"name": stem.name, "path": stem.path.name, "sha256": _sha256(stem.path)}
-                        for stem in stems
+                        for stem in stems_tuple
                     ],
-                    "license_note": "No model weights are distributed by this build.",
                 },
                 ensure_ascii=False,
                 indent=2,
@@ -389,8 +400,67 @@ class SeparationEngine:
             encoding="utf-8",
         )
         if progress:
-            progress(1.0, "Separación completada")
-        return SeparationResult(folder, stems, report_path)
+            progress(1.0, "Separación multistem completada")
+        return SeparationResult(folder, stems_tuple, report_path)
+
+    @staticmethod
+    def _find_separator_python() -> Path | None:
+        bundled = Path(__file__).resolve().parent / ".venv" / "bin" / "python"
+        if bundled.is_file():
+            try:
+                check = subprocess.run(
+                    [str(bundled), "-c", "import demucs"],
+                    check=False,
+                    capture_output=True,
+                    text=True,
+                )
+            except OSError:
+                check = None
+            if check is not None and check.returncode == 0:
+                return bundled
+        executable = shutil.which("python3") or sys.executable
+        try:
+            check = subprocess.run(
+                [executable, "-c", "import demucs"],
+                check=False,
+                capture_output=True,
+                text=True,
+            )
+        except OSError:
+            return None
+        return Path(executable) if check.returncode == 0 else None
+
+    @staticmethod
+    def _demucs_error(lines: list[str]) -> str:
+        joined = " ".join(lines).lower()
+        if "no module named" in joined:
+            return "El entorno Demucs está incompleto. Ejecuta ./setup-model.sh y vuelve a intentarlo."
+        if "out of memory" in joined or "memoryerror" in joined:
+            return "Demucs se quedó sin memoria. Cierra otras aplicaciones y vuelve a probar."
+        if "download" in joined or "connection" in joined:
+            return "No se pudo descargar el modelo Demucs. Comprueba la conexión y vuelve a intentarlo."
+        return "Demucs no pudo completar la separación. Revisa el audio o prueba con una mezcla más corta."
+
+    def _render_audio(self, inputs: tuple[Path, ...], output: Path, sample_rate: int, channels: int) -> None:
+        if len(inputs) == 1:
+            command = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", str(inputs[0])]
+            filter_args: list[str] = []
+        else:
+            command = ["ffmpeg", "-hide_banner", "-nostdin", "-y"]
+            for source in inputs:
+                command.extend(["-i", str(source)])
+            labels = "".join(f"[{index}:a]" for index in range(len(inputs)))
+            filter_args = [
+                "-filter_complex",
+                f"{labels}amix=inputs={len(inputs)}:duration=longest:dropout_transition=0:normalize=0[sum]",
+                "-map",
+                "[sum]",
+            ]
+        command.extend(filter_args)
+        command.extend(["-ar", str(sample_rate), "-ac", str(channels), "-c:a", "pcm_s24le", str(output)])
+        result = _run(command)
+        if result.returncode != 0 or not output.is_file() or output.stat().st_size < 1024:
+            raise AudioEngineError(f"No se pudo preparar la pista {output.name}.")
 
     def mix(
         self,
@@ -465,18 +535,18 @@ class SeparationEngine:
         value = float(match.group(1))
         return None if value <= -90 else value
 
-    def _report(self, info: AudioInfo, folder: Path, stems: tuple[StemFile, ...]) -> str:
+    def _report(self, info: AudioInfo, folder: Path, stems: tuple[StemFile, ...], selected: set[str]) -> str:
         lines = [
             "# Informe de separación — StemForge",
             "",
             f"- Entrada: `{info.filename}`",
             f"- Duración: `{info.duration_label}`",
             f"- Formato detectado: `{info.format_name}`",
-            f"- Muestreo: `{info.sample_rate_label}`",
+            f"- Muestreo de entrada/salida: `{info.sample_rate_label}`",
             f"- Canales: `{info.channels}` ({info.channel_layout or 'no indicado'})",
-            "- Método: transformación determinista estéreo centro/lados mediante FFmpeg.",
+            f"- Modelo: `{MODEL_NAME}` (Demucs 6 fuentes, ejecución CPU local)",
+            f"- Selección: `{', '.join(sorted(selected))}`",
             "- Procesamiento: completamente local; no se ha subido el audio.",
-            "- Modelos de IA: ninguno incluido en esta compilación.",
             "",
             "## Archivos generados",
             "",
@@ -484,12 +554,10 @@ class SeparationEngine:
         lines.extend(f"- `{stem.path.name}` — {stem.kind}" for stem in stems)
         lines += [
             "",
-            "## Limitaciones conocidas",
+            "## Notas",
             "",
-            "Esta versión extrae el contenido central y lateral de una mezcla estéreo. "
-            "No equivale a una separación vocal entrenada y puede contener filtración. "
-            "Las categorías de batería, bajo, guitarras, piano y detalles vocales permanecen bloqueadas "
-            "hasta integrar un modelo con licencia de pesos verificable.",
+            "`Other.wav` se calcula sumando el stem Other del modelo y todas las categorías no seleccionadas. "
+            "Las salidas de guitarra y piano pueden contener más filtración que voces, batería o bajo; es una limitación conocida del modelo htdemucs_6s.",
             "",
             f"Resultados: `{folder}`",
         ]

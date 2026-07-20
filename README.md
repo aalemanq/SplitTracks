@@ -1,22 +1,32 @@
 # StemForge
 
-Aplicación de escritorio para Ubuntu que descarga audio de YouTube o carga una mezcla local, prepara dos pistas reales a partir de una mezcla estéreo, las reproduce en un mezclador sincronizado y exporta una mezcla WAV offline.
+Aplicación de escritorio para Ubuntu que descarga audio de YouTube o carga una mezcla local, separa seis stems con Demucs en CPU, los reproduce en un mezclador sincronizado y exporta una mezcla WAV offline.
 
-## Estado actual
+## Separación real
 
-StemForge usa una transformación determinista centro/lados de FFmpeg. `Voces.wav` contiene el centro estéreo y `Other.wav` el complemento lateral; juntas reconstruyen la mezcla original cuando se mantienen al 100 %. No es un modelo de IA y puede contener filtración.
+StemForge usa el modelo local `htdemucs_6s` de Demucs 4.1.0. Genera `Voces`, `Batería completa`, `Bajo`, `Guitarra`, `Piano y teclados` y `Other`. El modelo trabaja internamente a 44,1 kHz; StemForge convierte las salidas al muestreo y número de canales de la entrada antes de guardarlas.
 
-No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una aplicación de uso personal. Las categorías que necesitan pesos entrenados —batería, bajo, guitarras, piano, coros y efectos— aparecen desactivadas porque todavía no existe un modelo real integrado para ellas.
+`Other` siempre se genera como complemento: suma el `Other` del modelo y todas las categorías que no hayas seleccionado. Las salidas de piano y guitarra pueden contener más filtración que voces, batería o bajo; es una limitación conocida de `htdemucs_6s`.
+
+No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una aplicación de uso personal.
 
 ## Ejecutar en Ubuntu 24.04.4 LTS
 
 Dependencias del sistema:
 
 ```bash
-sudo apt install python3 python3-gi gir1.2-gtk-4.0 gir1.2-gstreamer-1.0 ffmpeg gstreamer1.0-plugins-base gstreamer1.0-plugins-good
+sudo apt install python3 python3-venv python3-gi gir1.2-gtk-4.0 gir1.2-gstreamer-1.0 ffmpeg gstreamer1.0-plugins-base gstreamer1.0-plugins-good
 ```
 
-El ejecutable de `yt-dlp` se incluye en `bin/yt-dlp`; si se elimina, StemForge también puede usar un `yt-dlp` instalado en el `PATH`.
+Instala el motor ML una vez:
+
+```bash
+./setup-model.sh
+```
+
+El script instala las ruedas CPU oficiales de PyTorch y Demucs en `.venv`; no instala CUDA. El modelo se descarga la primera vez que se separa una canción y queda en la caché local de PyTorch/Hugging Face.
+
+El ejecutable de `yt-dlp` se incluye en `bin/yt-dlp`.
 
 Después:
 
@@ -24,30 +34,30 @@ Después:
 ./run.sh
 ```
 
-También se puede abrir `stemforge.desktop` desde un lanzador, ajustando `Exec` si el proyecto se mueve a otra carpeta.
-
 ## Flujo
 
 1. Pega un enlace de YouTube y pulsa `Descargar`, o selecciona/arrastra un archivo local.
-2. La descarga usa solo el vídeo indicado (`--no-playlist`) y conserva el audio como WAV temporal local.
+2. Elige las categorías que quieres conservar; `Other` se calcula automáticamente.
 3. Elige una carpeta de trabajo explícita.
 4. Pulsa `Separar y preparar pistas`.
-5. Reproduce las pistas con un único pipeline GStreamer; `M`, `S`, volumen y la línea temporal se aplican sin reiniciar el motor.
-6. Usa `Exportar mezcla` para crear `StemForge - mezcla.wav` con el estado actual del mezclador.
+5. Escucha y ajusta cada stem con mute, solo y volumen.
+6. Usa `Exportar mezcla` para crear `StemForge - mezcla.wav`.
 
 Las descargas de YouTube son solo para uso personal y deben respetar los derechos y condiciones aplicables al contenido.
 
-Cada sesión genera `INFORME.md` y `PROVENANCE.json` con el método, limitaciones y hashes de salida.
+Cada sesión genera `INFORME.md` y `PROVENANCE.json` con el modelo, categorías, método y hashes de salida.
 
 ## Verificación rápida
 
 ```bash
 python3 -m py_compile app.py engine.py player.py
-bin/yt-dlp --version
+./.venv/bin/python -c "import torch, torchaudio, demucs; print(torch.__version__, torch.cuda.is_available())"
 ```
 
-La separación necesita una mezcla de dos canales y requiere que FFmpeg pueda leerla. La reproducción requiere un backend de audio GStreamer disponible en el escritorio.
+La separación actual necesita una mezcla estéreo de dos canales. El procesamiento es CPU y puede tardar aproximadamente lo mismo o más que la duración de la canción según el tamaño y la memoria disponible.
 
-## Modelos
+## Fuentes del motor
 
-Este desarrollo no incluye pesos de IA de terceros. `models/manifest.json` mantiene un registro vacío hasta que exista un modelo real que pueda integrarse de forma explícita. No se generan archivos silenciosos para aparentar capacidades.
+- Demucs: https://github.com/facebookresearch/demucs
+- Modelo `htdemucs_6s`: seis fuentes (`drums`, `bass`, `other`, `vocals`, `piano`, `guitar`).
+- Demucs documenta que piano puede tener más artefactos; la interfaz no oculta esa limitación.
