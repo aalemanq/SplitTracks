@@ -1,0 +1,7 @@
+{
+  "application": "StemForge",
+  "status": "no-model-weights-included",
+  "models": [],
+  "policy": "fail-closed",
+  "note": "The current Ubuntu build uses a deterministic FFmpeg stereo transform. No model weights are bundled until code and weight licenses permit use, inclusion and redistribution."
+}

@@ -1,0 +1,15 @@
+{
+  "application": "StemForge",
+  "version": "0.1.0",
+  "platform": "Ubuntu 24.04+ x86_64",
+  "runtime": {
+    "python": "system python3 is used for this development build",
+    "audio": "FFmpeg discovered at runtime",
+    "playback": "GStreamer 1.x discovered at runtime"
+  },
+  "models": {
+    "bundled": false,
+    "manifest": "models/manifest.json"
+  },
+  "privacy": "Audio is processed locally; no network API is used by the app."
+}

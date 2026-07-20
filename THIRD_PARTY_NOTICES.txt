@@ -1,0 +1,12 @@
+StemForge 0.1.0
+
+This development build does not redistribute third-party model weights.
+
+Runtime dependencies are discovered from the Ubuntu installation:
+- Python 3
+- GTK 4 via PyGObject
+- GStreamer 1.x
+- FFmpeg
+
+The exact package versions and licenses are supplied by the Ubuntu package
+manager and must be captured from the target build before redistribution.

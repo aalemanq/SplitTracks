@@ -1,0 +1,359 @@
+@define-color ink #f4f5f7;
+@define-color muted #9ba4b6;
+@define-color panel #171b24;
+@define-color panel-soft #1d2230;
+@define-color outline #2b3241;
+@define-color mint #9ef1cf;
+@define-color mint-strong #6ee0b0;
+@define-color coral #f4a7b9;
+@define-color blue #a6b8ff;
+
+window {
+  background: #10131a;
+  color: @ink;
+}
+
+headerbar {
+  min-height: 72px;
+  padding: 0 22px;
+  background: #12161e;
+  border-bottom: 1px solid @outline;
+}
+
+headerbar button {
+  border-radius: 10px;
+  color: @muted;
+}
+
+.brand-mark {
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 12px;
+  background: @mint;
+  color: #12161e;
+  font-size: 17px;
+  font-weight: 800;
+}
+
+.brand-title {
+  color: @ink;
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.brand-subtitle {
+  color: @muted;
+  font-size: 11px;
+}
+
+.sidebar {
+  background: #141820;
+  border-right: 1px solid @outline;
+}
+
+.sidebar-scroll {
+  background: transparent;
+}
+
+.eyebrow {
+  color: @mint-strong;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
+}
+
+.page-title {
+  color: @ink;
+  font-size: 24px;
+  font-weight: 750;
+}
+
+.page-subtitle, .helper {
+  color: @muted;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.card {
+  padding: 16px;
+  border: 1px solid @outline;
+  border-radius: 16px;
+  background: @panel;
+}
+
+.card-title {
+  color: @ink;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.card-caption {
+  color: @muted;
+  font-size: 11px;
+}
+
+.drop-zone {
+  min-height: 128px;
+  padding: 16px;
+  border: 1px dashed #4e596e;
+  border-radius: 13px;
+  background: #1a202c;
+}
+
+.drop-zone:hover {
+  border-color: @mint-strong;
+  background: #202a30;
+}
+
+.drop-icon {
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 13px;
+  background: #293b39;
+  color: @mint;
+  font-size: 19px;
+  font-weight: 700;
+}
+
+.file-name {
+  color: @ink;
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.file-meta {
+  color: @muted;
+  font-size: 11px;
+}
+
+button.primary-action {
+  min-height: 46px;
+  border-radius: 12px;
+  background: @mint;
+  color: #12161e;
+  font-weight: 800;
+}
+
+button.primary-action:hover {
+  background: #b7f7dc;
+}
+
+button.secondary-action {
+  border: 1px solid @outline;
+  border-radius: 10px;
+  background: @panel-soft;
+  color: @ink;
+}
+
+button.secondary-action:hover {
+  border-color: #55637a;
+  background: #252c3b;
+}
+
+.folder-button {
+  min-height: 38px;
+  border: 1px solid @outline;
+  border-radius: 10px;
+  background: #1c212d;
+  color: @ink;
+}
+
+.status-card {
+  padding: 16px 18px;
+  border: 1px solid @outline;
+  border-radius: 15px;
+  background: #181e29;
+}
+
+.status-title {
+  color: @ink;
+  font-size: 14px;
+  font-weight: 700;
+}
+
+.status-detail {
+  color: @muted;
+  font-size: 12px;
+}
+
+.status-pill {
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #20342f;
+  color: @mint;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.status-pill.pending {
+  background: #2a2d38;
+  color: @muted;
+}
+
+.wave-card {
+  padding: 18px;
+  border: 1px solid @outline;
+  border-radius: 16px;
+  background: #151a23;
+}
+
+.time-label {
+  color: @muted;
+  font-size: 11px;
+  font-variant: tabular-nums;
+}
+
+scale trough {
+  min-height: 5px;
+  border-radius: 5px;
+  background: #303747;
+}
+
+scale highlight {
+  border-radius: 5px;
+  background: @mint-strong;
+}
+
+scale slider {
+  min-width: 15px;
+  min-height: 15px;
+  border: 2px solid #10131a;
+  border-radius: 50%;
+  background: @mint;
+}
+
+.transport button {
+  min-width: 38px;
+  min-height: 36px;
+  border-radius: 11px;
+  background: #252c3a;
+  color: @ink;
+  font-size: 15px;
+}
+
+.transport button.play-button {
+  min-width: 48px;
+  min-height: 42px;
+  border-radius: 13px;
+  background: @mint;
+  color: #10131a;
+  font-weight: 800;
+}
+
+.section-heading {
+  color: @ink;
+  font-size: 16px;
+  font-weight: 750;
+}
+
+.section-note {
+  color: @muted;
+  font-size: 11px;
+}
+
+.track-row {
+  min-height: 74px;
+  padding: 10px 12px;
+  border: 1px solid @outline;
+  border-radius: 13px;
+  background: @panel;
+}
+
+.track-row:hover {
+  background: #1d2330;
+}
+
+.track-dot {
+  min-width: 9px;
+  min-height: 9px;
+  border-radius: 50%;
+}
+
+.track-name {
+  color: @ink;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.track-kind {
+  color: @muted;
+  font-size: 10px;
+}
+
+.track-value {
+  min-width: 42px;
+  color: @muted;
+  font-size: 11px;
+  font-variant: tabular-nums;
+}
+
+.track-toggle {
+  min-width: 31px;
+  min-height: 28px;
+  padding: 0;
+  border: 1px solid @outline;
+  border-radius: 8px;
+  background: #202634;
+  color: @muted;
+  font-size: 10px;
+  font-weight: 800;
+}
+
+.track-toggle:checked {
+  border-color: @coral;
+  background: #442a36;
+  color: @coral;
+}
+
+.track-toggle.solo:checked {
+  border-color: @blue;
+  background: #28334f;
+  color: @blue;
+}
+
+.empty-state {
+  min-height: 220px;
+  padding: 28px;
+  border: 1px dashed #394254;
+  border-radius: 16px;
+  background: #151a23;
+}
+
+.empty-icon {
+  color: #77849d;
+  font-size: 32px;
+}
+
+.empty-title {
+  color: @ink;
+  font-size: 15px;
+  font-weight: 700;
+}
+
+.empty-copy {
+  max-width: 360px;
+  color: @muted;
+  font-size: 12px;
+}
+
+.disabled-row {
+  opacity: 0.52;
+}
+
+.license-note {
+  padding: 11px;
+  border-radius: 10px;
+  background: #20252f;
+  color: @muted;
+  font-size: 10px;
+}
+
+.folder-path {
+  color: @mint;
+  font-size: 11px;
+}
+
+.progress-text {
+  color: @muted;
+  font-size: 11px;
+}
