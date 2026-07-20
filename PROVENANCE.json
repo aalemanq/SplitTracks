@@ -1,15 +1,16 @@
 {
   "application": "StemForge",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "platform": "Ubuntu 24.04+ x86_64",
   "runtime": {
-    "python": "system python3 is used for this development build",
+    "python": "system python3 is used for this personal build",
     "audio": "FFmpeg discovered at runtime",
-    "playback": "GStreamer 1.x discovered at runtime"
+    "playback": "GStreamer 1.x discovered at runtime",
+    "youtube_downloader": "bin/yt-dlp"
   },
   "models": {
     "bundled": false,
     "manifest": "models/manifest.json"
   },
-  "privacy": "Audio is processed locally; no network API is used by the app."
+  "privacy": "Local files and downloaded audio are processed locally. YouTube downloads are the only network operation exposed by the app."
 }

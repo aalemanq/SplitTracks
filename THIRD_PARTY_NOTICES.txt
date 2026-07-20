@@ -1,12 +1,15 @@
-StemForge 0.1.0
+StemForge 0.2.0
 
-This development build does not redistribute third-party model weights.
+Personal-use build. No AI model weights are bundled.
 
-Runtime dependencies are discovered from the Ubuntu installation:
+Bundled third-party executable:
+- yt-dlp 2026.07.04, downloaded from the official yt-dlp release endpoint.
+  It is used only to download a single YouTube video as temporary local WAV audio.
+
+Runtime dependencies discovered from Ubuntu:
 - Python 3
 - GTK 4 via PyGObject
 - GStreamer 1.x
 - FFmpeg
 
-The exact package versions and licenses are supplied by the Ubuntu package
-manager and must be captured from the target build before redistribution.
+The Ubuntu package manager supplies the licenses for runtime dependencies.

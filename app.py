@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import shutil
 import sys
 import threading
 from pathlib import Path
@@ -157,6 +158,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.result: SeparationResult | None = None
         self.track_states: list[dict] = []
         self.cancel_event: threading.Event | None = None
+        self.youtube_temp_dir: Path | None = None
         self._busy = False
         self._updating_timeline = False
 
@@ -222,10 +224,10 @@ class MainWindow(Gtk.ApplicationWindow):
 
         body.append(label("01  ·  NUEVA SESIÓN", "eyebrow"))
         body.append(label("Divide tu mezcla", "page-title"))
-        body.append(label("Carga un audio estéreo, elige el complemento y escucha el resultado en un mismo reloj.", "page-subtitle", wrap=True))
+        body.append(label("Carga un audio estéreo o pega un enlace de YouTube; después escucha el resultado en un mismo reloj.", "page-subtitle", wrap=True))
 
         source_card = self._card()
-        source_card.append(label("Archivo de entrada", "card-title"))
+        source_card.append(label("Fuente de audio", "card-title"))
         source_card.append(label("WAV · FLAC · OGG · MP3 · M4A", "card-caption"))
         drop = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         drop.add_css_class("drop-zone")
@@ -248,6 +250,21 @@ class MainWindow(Gtk.ApplicationWindow):
         target.connect("drop", self._drop_audio)
         drop.add_controller(target)
         source_card.append(drop)
+
+        source_card.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
+        source_card.append(label("O pega un enlace de YouTube", "card-title"))
+        source_card.append(label("Se descarga solo el audio y se guarda como archivo temporal local.", "card-caption", wrap=True))
+        youtube_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.youtube_entry = Gtk.Entry()
+        self.youtube_entry.set_placeholder_text("https://www.youtube.com/watch?v=…")
+        self.youtube_entry.set_hexpand(True)
+        self.youtube_entry.connect("activate", self._download_youtube)
+        youtube_row.append(self.youtube_entry)
+        self.youtube_button = Gtk.Button(label="Descargar")
+        self.youtube_button.add_css_class("secondary-action")
+        self.youtube_button.connect("clicked", self._download_youtube)
+        youtube_row.append(self.youtube_button)
+        source_card.append(youtube_row)
 
         self.file_card = self._card()
         self.file_card.set_visible(False)
@@ -326,7 +343,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.sidebar_status = label("Selecciona un audio y una carpeta para comenzar.", "helper", wrap=True)
         body.append(self.sidebar_status)
 
-        note = label("Este build no incluye pesos de IA. El motor estéreo es transparente, local y verificable.", "license-note", wrap=True)
+        note = label("Uso personal: acceso completo, sin cuenta ni modalidad premium. El motor estéreo es local y verificable.", "license-note", wrap=True)
         body.append(note)
         return sidebar
 
@@ -446,6 +463,55 @@ class MainWindow(Gtk.ApplicationWindow):
         empty.append(copy)
         return empty
 
+    def _download_youtube(self, _button) -> None:
+        if self._busy:
+            return
+        url = self.youtube_entry.get_text().strip()
+        if not url:
+            self._set_status("Falta el enlace", "Pega una URL de YouTube para descargar el audio", "REVISAR", pending=True)
+            return
+        self._busy = True
+        self.cancel_event = threading.Event()
+        self.youtube_button.set_sensitive(False)
+        self.separate_button.set_label("Cancelar descarga")
+        self.progress.set_visible(True)
+        self.progress.set_fraction(0.0)
+        self._set_status("Descargando audio", "La descarga se procesa localmente para esta sesión", "DESCARGANDO")
+        self.sidebar_status.set_text("Puedes cancelar la descarga en cualquier momento.")
+        threading.Thread(target=self._youtube_worker, args=(url,), daemon=True).start()
+
+    def _youtube_worker(self, url: str) -> None:
+        try:
+            result = self.engine.download_youtube(
+                url,
+                progress=lambda value, phase: GLib.idle_add(self._operation_progress, value, phase),
+                cancel_event=self.cancel_event,
+            )
+            GLib.idle_add(self._youtube_success, result)
+        except SeparationCancelled as exc:
+            GLib.idle_add(self._operation_cancelled, str(exc))
+        except AudioEngineError as exc:
+            GLib.idle_add(self._operation_error, str(exc))
+        except Exception as exc:
+            GLib.idle_add(self._operation_error, f"Error inesperado: {exc}")
+
+    def _youtube_success(self, result) -> bool:
+        self._busy = False
+        self.cancel_event = None
+        self.youtube_button.set_sensitive(True)
+        self.separate_button.set_label("Separar y preparar pistas")
+        self.progress.set_visible(False)
+        self.youtube_temp_dir = result.temporary_dir
+        self._load_audio(str(result.path), keep_youtube_temp=True)
+        self.sidebar_status.set_text(f"Audio descargado: {result.title}")
+        self._update_start_state()
+        return False
+
+    def _cleanup_youtube_temp(self) -> None:
+        if self.youtube_temp_dir:
+            shutil.rmtree(self.youtube_temp_dir, ignore_errors=True)
+            self.youtube_temp_dir = None
+
     def _choose_audio(self, _button) -> None:
         dialog = Gtk.FileDialog(title="Seleccionar mezcla")
         dialog.open(self, None, self._audio_dialog_done)
@@ -466,9 +532,11 @@ class MainWindow(Gtk.ApplicationWindow):
                 return True
         return False
 
-    def _load_audio(self, path: str | None) -> None:
+    def _load_audio(self, path: str | None, *, keep_youtube_temp: bool = False) -> None:
         if not path:
             return
+        if not keep_youtube_temp:
+            self._cleanup_youtube_temp()
         self.input_path = Path(path).expanduser().resolve()
         self.file_card.set_visible(True)
         self.file_name.set_text(self.input_path.name)
@@ -569,6 +637,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.separate_button.set_label("Separar y preparar pistas")
         self.progress.set_visible(False)
         self._load_stems(result)
+        self._cleanup_youtube_temp()
         self._set_status("Pistas listas para escuchar", "Separación local completada sin archivos silenciosos", "LISTO")
         self.sidebar_status.set_text(f"Guardado en {result.output_dir}")
         self.export_button.set_sensitive(True)
@@ -679,7 +748,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._busy = False
         self.cancel_event = None
         self.progress.set_visible(False)
+        self.youtube_button.set_sensitive(True)
         self.separate_button.set_label("Separar y preparar pistas")
+        self._cleanup_youtube_temp()
         self._set_status("Separación cancelada", detail, "CANCELADO", pending=True)
         self.sidebar_status.set_text("No se han conservado archivos parciales.")
         self._update_start_state()
@@ -689,7 +760,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._busy = False
         self.cancel_event = None
         self.progress.set_visible(False)
+        self.youtube_button.set_sensitive(True)
         self.separate_button.set_label("Separar y preparar pistas")
+        self._cleanup_youtube_temp()
         self._set_status("No se pudo completar", detail, "REVISAR", pending=True)
         self.sidebar_status.set_text(detail)
         self.export_button.set_sensitive(bool(self.result))
@@ -732,6 +805,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def close_request(self) -> bool:
         self.player.close()
+        self._cleanup_youtube_temp()
         return super().close_request()
 
 

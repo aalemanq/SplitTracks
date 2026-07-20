@@ -11,9 +11,12 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import re
 import shutil
 import subprocess
+import tempfile
+from urllib.parse import urlparse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
@@ -60,6 +63,13 @@ class SeparationResult:
     output_dir: Path
     stems: tuple[StemFile, ...]
     report_path: Path
+
+
+@dataclass(frozen=True)
+class YoutubeDownloadResult:
+    path: Path
+    temporary_dir: Path
+    title: str
 
 
 ProgressCallback = Callable[[float, str], None]
@@ -137,6 +147,107 @@ class SeparationEngine:
             channels=int(stream.get("channels") or 0),
             channel_layout=stream.get("channel_layout") or ("stereo" if stream.get("channels") == 2 else ""),
         )
+
+    def download_youtube(
+        self,
+        url: str,
+        progress: ProgressCallback | None = None,
+        cancel_event=None,
+    ) -> YoutubeDownloadResult:
+        """Download one YouTube video as a temporary local WAV file."""
+        parsed = urlparse(url.strip())
+        host = (parsed.hostname or "").lower().removeprefix("www.")
+        allowed_hosts = {"youtube.com", "youtu.be", "m.youtube.com", "music.youtube.com"}
+        if parsed.scheme not in {"http", "https"} or host not in allowed_hosts:
+            raise AudioEngineError("Pega un enlace válido de YouTube.")
+
+        ytdlp = self._find_ytdlp()
+        if not ytdlp:
+            raise AudioEngineError(
+                "No encuentro yt-dlp. Coloca el binario en bin/yt-dlp o instala yt-dlp con Ubuntu."
+            )
+        temporary_dir = Path(tempfile.mkdtemp(prefix="stemforge-youtube-"))
+        command = [
+            str(ytdlp),
+            "--no-playlist",
+            "--no-part",
+            "--restrict-filenames",
+            "--no-warnings",
+            "--newline",
+            "--progress",
+            "--extract-audio",
+            "--audio-format",
+            "wav",
+            "--audio-quality",
+            "0",
+            "--output",
+            str(temporary_dir / "%(title)s.%(ext)s"),
+            url.strip(),
+        ]
+        if progress:
+            progress(0.03, "Conectando con YouTube")
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            bufsize=1,
+        )
+        output_lines: list[str] = []
+        try:
+            assert process.stdout is not None
+            for raw_line in process.stdout:
+                line = raw_line.strip()
+                if line:
+                    output_lines.append(line)
+                if cancel_event is not None and cancel_event.is_set():
+                    process.terminate()
+                    process.wait(timeout=5)
+                    raise SeparationCancelled("Descarga cancelada. No se ha conservado el archivo temporal.")
+                match = re.search(r"\[download\]\s+(\d+(?:\.\d+)?)%", line)
+                if match and progress:
+                    percent = float(match.group(1)) / 100
+                    progress(min(0.84, 0.06 + percent * 0.76), "Descargando audio de YouTube")
+            return_code = process.wait()
+        except SeparationCancelled:
+            shutil.rmtree(temporary_dir, ignore_errors=True)
+            raise
+        except Exception:
+            process.kill()
+            process.wait()
+            shutil.rmtree(temporary_dir, ignore_errors=True)
+            raise
+
+        wav_files = sorted(temporary_dir.glob("*.wav"))
+        if return_code != 0 or not wav_files:
+            shutil.rmtree(temporary_dir, ignore_errors=True)
+            detail = self._youtube_error(output_lines)
+            raise AudioEngineError(detail)
+        audio_path = wav_files[0]
+        if progress:
+            progress(0.94, "Audio descargado; comprobando el archivo")
+        return YoutubeDownloadResult(audio_path, temporary_dir, audio_path.stem)
+
+    @staticmethod
+    def _find_ytdlp() -> Path | None:
+        bundled = Path(__file__).resolve().parent / "bin" / "yt-dlp"
+        if bundled.is_file() and os.access(bundled, os.X_OK):
+            return bundled
+        system = shutil.which("yt-dlp")
+        return Path(system) if system else None
+
+    @staticmethod
+    def _youtube_error(lines: list[str]) -> str:
+        joined = " ".join(lines).lower()
+        if "sign in" in joined or "confirm you are" in joined:
+            return "YouTube pide verificar la sesión para este vídeo. Prueba otro enlace."
+        if "private video" in joined or "video unavailable" in joined:
+            return "El vídeo no está disponible públicamente o es privado."
+        if "age-restricted" in joined or "age restricted" in joined:
+            return "El vídeo tiene restricción de edad y yt-dlp no puede acceder sin sesión."
+        return "No se pudo descargar el audio de YouTube. Comprueba el enlace y tu conexión."
 
     def separate(
         self,

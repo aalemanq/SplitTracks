@@ -331,7 +331,6 @@ scale slider {
 }
 
 .empty-copy {
-  max-width: 360px;
   color: @muted;
   font-size: 12px;
 }
