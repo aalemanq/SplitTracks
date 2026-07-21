@@ -512,7 +512,13 @@ def _measure_loudness(path: Path) -> float | None:
     return float(match[-1]) if match else None
 
 
-def analyze_audio(path: str | Path) -> AudioAnalysis:
+def analyze_audio(path: str | Path, *, detect_chords: bool = False) -> AudioAnalysis:
+    """Extract fast metadata, optionally retaining the legacy chord estimate.
+
+    Human chord charts are now the canonical source in the application. Keeping
+    the old detector behind an opt-in flag preserves it for diagnostics and
+    tests without making every upload pay its extra chroma-analysis cost.
+    """
     audio_path = Path(path).expanduser().resolve()
     if not audio_path.is_file():
         raise AnalysisError("El archivo ya no está disponible para analizarlo.")
@@ -524,8 +530,10 @@ def analyze_audio(path: str | Path) -> AudioAnalysis:
     frequencies = np.fft.rfftfreq(FFT_SIZE, 1.0 / SAMPLE_RATE)
     bpm, tempo_confidence = _detect_tempo(magnitude)
     key_name, scale, key_confidence = _detect_key(power, frequencies)
-    chroma = _chroma_frames(power, frequencies)
-    chords = _detect_chords(chroma, bpm, samples.size / SAMPLE_RATE, key_name, scale)
+    chords: tuple[ChordEvent, ...] = ()
+    if detect_chords:
+        chroma = _chroma_frames(power, frequencies)
+        chords = _detect_chords(chroma, bpm, samples.size / SAMPLE_RATE, key_name, scale)
     peak_dbfs = _db(float(np.max(np.abs(samples))))
     return AudioAnalysis(
         bpm=bpm,

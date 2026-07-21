@@ -996,3 +996,57 @@ checkbutton.category-check:disabled {
   color: @muted;
   font-size: 9px;
 }
+
+.harmony-source-panel {
+  margin-top: 4px;
+  padding: 11px;
+  border: 1px solid @line-strong;
+  border-radius: 12px;
+  background: @canvas;
+}
+
+.harmony-source-panel entry {
+  min-height: 31px;
+}
+
+.harmony-status {
+  color: @cyan;
+  font-size: 10px;
+}
+
+.harmony-candidate-row {
+  min-height: 48px;
+  padding: 7px 8px;
+  border: 1px solid @line;
+  border-radius: 10px;
+  background: @surface;
+}
+
+.harmony-candidate-row:hover {
+  border-color: @line-strong;
+  background: @surface-raised;
+}
+
+.harmony-candidate-title {
+  color: @ink;
+  font-size: 11px;
+  font-weight: 850;
+}
+
+.harmony-candidate-detail {
+  color: @muted;
+  font-size: 9px;
+}
+
+.chord-line-flow {
+  min-height: 34px;
+}
+
+.chord-section-title {
+  margin-top: 5px;
+  color: @muted;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 0.8px;
+  text-transform: uppercase;
+}

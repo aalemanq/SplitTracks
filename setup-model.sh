@@ -13,6 +13,7 @@ fi
   --index-url https://download.pytorch.org/whl/cpu \
   "torch==2.11.0+cpu" "torchaudio==2.11.0+cpu"
 "$VENV_PYTHON" -m pip install --no-cache-dir \
-  "demucs==4.1.0" "numpy>=2,<3" "scipy>=1.13,<2"
+  "demucs==4.1.0" "numpy>=2,<3" "scipy>=1.13,<2" \
+  "requests>=2.31,<3" "beautifulsoup4>=4.12,<5"
 
 printf '%s\n' "Split Tracks ML listo: Demucs htdemucs_6s en CPU."

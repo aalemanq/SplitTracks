@@ -18,10 +18,18 @@ No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una 
 
 ## Análisis musical local
 
-Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un panel de métricas con tonalidad destacada, BPM, duración, escala, LUFS, dinámica, formato, muestreo, canales, estabilidad del tempo, confianza tonal y número de acordes. También estima una progresión de triadas mayores y menores por segmentos de aproximadamente uno o dos segundos, mostrando los acordes y sus grados en cuatro columnas para facilitar la lectura.
+Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un panel de métricas con tonalidad destacada, BPM, duración, escala, LUFS, dinámica, formato, muestreo, canales, estabilidad del tempo, confianza tonal y el número de acordes de la fuente humana seleccionada. Los acordes y grados se muestran en cuatro columnas para facilitar la lectura.
 Los botones `−`, `+` y `Original` de `Transponer análisis` son el único control de tonalidad: cambian la preescucha en vivo manteniendo el tempo y actualizan los acordes y grados mostrados.
 
-La detección de acordes es deliberadamente local y prudente: usa perfiles de chroma y plantillas de triadas, aplica suavizado temporal para descartar cambios aislados de baja confianza y reconoce patrones repetidos de mezcla modal como I–III–IV–iv. No consulta webs ni presenta una transcripción como exacta. Las páginas de acordes pueden elegir nombres distintos para una misma sonoridad —por inversión, extensiones o simplificación—, así que la mejor validación sigue siendo escuchar el segmento y contrastarlo con el instrumento.
+El detector de acordes por audio queda disponible solo como diagnóstico opcional; no se usa como fuente canónica ni se ejecuta durante la carga normal. La aplicación usa ahora un cifrado humano seleccionado por el usuario, que conserva secciones, orden y cambios de acorde publicados.
+
+### Acordes de fuentes humanas
+
+La tarjeta "Cifrado humano" busca artista y canción directamente en [Cifra Club](https://www.cifraclub.com.br/), muestra las versiones que la página ofrece y permite abrir la fuente antes de elegirla. Se valida que cada versión contenga un bloque de acordes legible, por lo que las páginas de letra, tablatura o versiones sin acordes no aparecen como opciones utilizables.
+
+Al seleccionar una versión, la app muestra sus acordes y grados en columnas de cuatro, conserva las secciones de la fuente y usa la tonalidad publicada cuando está disponible. Los botones de transposición cambian a la vez la tonalidad, los acordes, las inversiones y los grados, sin reanalizar el audio. La información se cachea durante siete días en ~/.cache/split-tracks/harmony para no repetir consultas.
+
+Esta primera integración prioriza una fuente estable y revisada. Ultimate Guitar queda como siguiente proveedor independiente, porque sus páginas y mecanismos de carga cambian con frecuencia; no se mezclan datos de varios sitios ni se inventan compases cuando la fuente no los publica. La app conserva el enlace de cada versión para comprobarla manualmente.
 
 La cabecera concentra ahora la URL de YouTube, la apertura de archivos locales, los accesos rápidos por stem y el botón Separar. La columna lateral queda reservada para la carpeta de trabajo y el análisis musical, con una lectura más amplia de sus metadatos y acordes.
 
