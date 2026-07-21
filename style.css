@@ -356,3 +356,34 @@ scale slider {
   color: @muted;
   font-size: 11px;
 }
+
+
+.tone-card {
+  padding: 14px 16px;
+  border: 1px solid @outline;
+  border-radius: 16px;
+  background: @panel;
+}
+
+.tone-button {
+  min-width: 38px;
+  min-height: 34px;
+  border: 1px solid @outline;
+  border-radius: 10px;
+  background: #202634;
+  color: @ink;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.tone-button:hover {
+  border-color: @mint-strong;
+  background: #283b38;
+  color: @mint;
+}
+
+.tone-value {
+  color: @mint;
+  font-size: 13px;
+  font-weight: 750;
+}

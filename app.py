@@ -162,6 +162,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_checks: dict[str, Gtk.CheckButton] = {}
         self._busy = False
         self._updating_timeline = False
+        self.pitch_shift = 0
+        self._pitch_previous = 0
+        self._pitch_resume_playing = False
+        self._pitch_resume_position = 0.0
 
         self._load_css()
         self._build_header()
@@ -315,7 +319,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         output_card = self._card()
         output_card.append(label("Carpeta de trabajo", "card-title"))
-        output_card.append(label("Elige dónde se guardarán los WAV y el informe.", "card-caption", wrap=True))
+        output_card.append(label("Las pistas y mezclas se guardan como MP3 320 kbps; el WAV solo es temporal interno.", "card-caption", wrap=True))
         folder_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.folder_label = label("Ninguna carpeta elegida", "folder-path")
         self.folder_label.set_ellipsize(3)
@@ -362,7 +366,7 @@ class MainWindow(Gtk.ApplicationWindow):
         title_stack.append(label("Tu espacio de escucha", "page-title"))
         title_stack.append(label("Un reloj, dos pistas y control directo sobre cada stem.", "page-subtitle"))
         title_row.append(title_stack)
-        self.export_button = Gtk.Button(label="Exportar mezcla")
+        self.export_button = Gtk.Button(label="Exportar mezcla MP3")
         self.export_button.add_css_class("secondary-action")
         self.export_button.set_sensitive(False)
         self.export_button.connect("clicked", self._export_mix)
@@ -390,6 +394,36 @@ class MainWindow(Gtk.ApplicationWindow):
         self.progress.set_visible(False)
         self.progress.set_show_text(False)
         content.append(self.progress)
+
+        tone_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
+        tone_card.add_css_class("tone-card")
+        tone_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        tone_header.append(label("Cambio de tonalidad", "section-heading"))
+        tone_header.append(label("Mantiene tempo y duración", "section-note"))
+        tone_card.append(tone_header)
+        tone_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.pitch_down = Gtk.Button(label="−")
+        self.pitch_down.add_css_class("tone-button")
+        self.pitch_down.set_tooltip_text("Bajar un semitono · bemol")
+        self.pitch_down.connect("clicked", lambda *_: self._adjust_pitch(-1))
+        tone_controls.append(self.pitch_down)
+        self.pitch_value = label("Original · 0 semitonos", "tone-value")
+        self.pitch_value.set_hexpand(True)
+        self.pitch_value.set_xalign(0.5)
+        tone_controls.append(self.pitch_value)
+        self.pitch_up = Gtk.Button(label="+")
+        self.pitch_up.add_css_class("tone-button")
+        self.pitch_up.set_tooltip_text("Subir un semitono · sostenido")
+        self.pitch_up.connect("clicked", lambda *_: self._adjust_pitch(1))
+        tone_controls.append(self.pitch_up)
+        self.pitch_reset = Gtk.Button(label="Original")
+        self.pitch_reset.add_css_class("secondary-action")
+        self.pitch_reset.set_tooltip_text("Restablecer la tonalidad original")
+        self.pitch_reset.connect("clicked", lambda *_: self._reset_pitch())
+        tone_controls.append(self.pitch_reset)
+        tone_card.append(tone_controls)
+        content.append(tone_card)
+        self._set_pitch_controls(False)
 
         wave_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         wave_card.add_css_class("wave-card")
@@ -434,7 +468,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         footer.append(label("STEMFORGE / UBUNTU", "eyebrow"))
-        footer.append(label("·  Demucs 6s CPU  ·  Audio local  ·  WAV PCM", "section-note"))
+        footer.append(label("·  Demucs 6s CPU  ·  Audio local  ·  MP3 320 kbps  ·  WAV interno", "section-note"))
         content.append(footer)
         return outer
 
@@ -531,6 +565,8 @@ class MainWindow(Gtk.ApplicationWindow):
         if not keep_youtube_temp:
             self._cleanup_youtube_temp()
         self.input_path = Path(path).expanduser().resolve()
+        self.pitch_shift = 0
+        self._set_pitch_display()
         self.file_card.set_visible(True)
         self.file_name.set_text(self.input_path.name)
         self.file_meta.set_text("Analizando archivo…")
@@ -631,6 +667,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self._busy = False
         self.cancel_event = None
         self.result = result
+        self.pitch_shift = 0
+        self._set_pitch_display()
         self.separate_button.set_label("Separar y preparar pistas")
         self.progress.set_visible(False)
         self._load_stems(result)
@@ -644,7 +682,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _load_stems(self, result: SeparationResult) -> None:
         self.player.close()
         self.track_states = [
-            {"name": stem.name, "path": stem.path, "color": stem.color, "kind": stem.kind, "volume": 1.0, "mute": False, "solo": False}
+            {"name": stem.name, "path": stem.path, "base_path": stem.path, "color": stem.color, "kind": stem.kind, "volume": 1.0, "mute": False, "solo": False}
             for stem in result.stems
         ]
         while child := self.track_list.get_first_child():
@@ -700,6 +738,107 @@ class MainWindow(Gtk.ApplicationWindow):
             if not self.player.playing and position >= max(0.1, self.audio_info.duration - 0.2):
                 self.play_button.set_label("▶")
         return True
+
+    def _pitch_text(self) -> str:
+        if self.pitch_shift == 0:
+            return "Original · 0 semitonos"
+        sign = "+" if self.pitch_shift > 0 else "−"
+        amount = abs(self.pitch_shift)
+        unit = "semitono" if amount == 1 else "semitonos"
+        return f"{sign}{amount} {unit}"
+
+    def _set_pitch_display(self) -> None:
+        if hasattr(self, "pitch_value"):
+            self.pitch_value.set_text(self._pitch_text())
+
+    def _set_pitch_controls(self, enabled: bool) -> None:
+        if not hasattr(self, "pitch_down"):
+            return
+        available = bool(enabled and self.result and not self._busy)
+        self.pitch_down.set_sensitive(available and self.pitch_shift > -12)
+        self.pitch_up.set_sensitive(available and self.pitch_shift < 12)
+        self.pitch_reset.set_sensitive(available and self.pitch_shift != 0)
+
+    def _adjust_pitch(self, delta: int) -> None:
+        self._request_pitch_shift(max(-12, min(12, self.pitch_shift + delta)))
+
+    def _reset_pitch(self) -> None:
+        self._request_pitch_shift(0)
+
+    def _request_pitch_shift(self, semitones: int) -> None:
+        if self._busy or not self.result or not self.audio_info or semitones == self.pitch_shift:
+            return
+        self._pitch_previous = self.pitch_shift
+        self.pitch_shift = semitones
+        self._set_pitch_display()
+        self._pitch_resume_playing = self.player.playing
+        self._pitch_resume_position = self.player.position()
+        if self._pitch_resume_playing:
+            self.player.pause()
+            self.play_button.set_label("▶")
+        self._busy = True
+        self._set_pitch_controls(False)
+        self.youtube_button.set_sensitive(False)
+        self.separate_button.set_sensitive(False)
+        self.export_button.set_sensitive(False)
+        self.progress.set_visible(True)
+        self.progress.set_fraction(0.0)
+        self._set_status("Cambiando tonalidad", f"Aplicando {self._pitch_text()} a todas las pistas", "TRANSPONIENDO")
+        threading.Thread(target=self._pitch_worker, args=(semitones,), daemon=True).start()
+
+    def _pitch_worker(self, semitones: int) -> None:
+        try:
+            paths = self.engine.render_transposed_stems(
+                self.track_states,
+                self.result.output_dir,
+                semitones,
+                self.audio_info.sample_rate,
+                self.audio_info.channels,
+                self.audio_info.duration,
+                progress=lambda value, phase: GLib.idle_add(self._operation_progress, value, phase),
+            )
+            GLib.idle_add(self._pitch_success, semitones, paths)
+        except AudioEngineError as exc:
+            GLib.idle_add(self._pitch_error, str(exc))
+        except Exception as exc:
+            GLib.idle_add(self._pitch_error, f"Error inesperado: {exc}")
+
+    def _pitch_success(self, semitones: int, paths: tuple[Path, ...]) -> bool:
+        for state, path in zip(self.track_states, paths):
+            state["path"] = path
+        self.player.close()
+        playback_error = None
+        try:
+            self.player.load(self.track_states, self.audio_info.duration)
+            self.player.seek(min(self._pitch_resume_position, self.audio_info.duration))
+            if self._pitch_resume_playing:
+                self.player.play()
+                self.play_button.set_label("Ⅱ")
+        except Exception as exc:
+            playback_error = str(exc)
+        self._busy = False
+        self.progress.set_visible(False)
+        self.youtube_button.set_sensitive(True)
+        self.export_button.set_sensitive(True)
+        self._update_start_state()
+        self._set_pitch_controls(True)
+        if playback_error:
+            self._set_status("Tonalidad aplicada", f"La reproducción no está disponible: {playback_error}", "REVISAR", pending=True)
+        else:
+            self._set_status("Tonalidad aplicada", f"Todas las pistas están en {self._pitch_text()}", "LISTO")
+        return False
+
+    def _pitch_error(self, detail: str) -> bool:
+        self.pitch_shift = self._pitch_previous
+        self._set_pitch_display()
+        self._busy = False
+        self.progress.set_visible(False)
+        self.youtube_button.set_sensitive(True)
+        self.export_button.set_sensitive(True)
+        self._update_start_state()
+        self._set_pitch_controls(True)
+        self._set_status("No se pudo cambiar la tonalidad", detail, "REVISAR", pending=True)
+        return False
 
     def _export_mix(self, _button) -> None:
         if not self.result or self._busy:

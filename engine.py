@@ -111,7 +111,9 @@ def _sha256(path: Path) -> str:
 
 
 class SeparationEngine:
-    """Local audio probing, Demucs separation, rendering and mix export."""
+    """Local audio probing, Demucs separation, pitch shifting and MP3 export."""
+
+    mp3_bitrate = "320k"
 
     def probe(self, path: str | Path) -> AudioInfo:
         audio_path = Path(path).expanduser().resolve()
@@ -362,7 +364,7 @@ class SeparationEngine:
         requested = [name for name in STEM_ORDER if name in selected and name != "other"]
         for index, name in enumerate(requested):
             display_name, kind, color = STEM_LABELS[name]
-            output = folder / f"{display_name}.wav"
+            output = folder / f"{display_name}.mp3"
             self._render_audio((raw_stems[name],), output, info.sample_rate, info.channels)
             final_stems.append(StemFile(display_name, output, color, kind))
             if progress:
@@ -370,7 +372,7 @@ class SeparationEngine:
 
         complement_inputs = [raw_stems["other"]]
         complement_inputs.extend(raw_stems[name] for name in STEM_ORDER if name != "other" and name not in selected)
-        other_output = folder / "Other.wav"
+        other_output = folder / "Other.mp3"
         self._render_audio(tuple(complement_inputs), other_output, info.sample_rate, info.channels)
         final_stems.append(StemFile("Other", other_output, STEM_LABELS["other"][2], "complemento de las pistas no seleccionadas"))
         shutil.rmtree(raw_dir, ignore_errors=True)
@@ -387,6 +389,8 @@ class SeparationEngine:
                     "input": str(info.path),
                     "input_sha256": _sha256(info.path),
                     "selected_categories": sorted(selected),
+                    "output_format": "mp3",
+                    "output_bitrate": self.mp3_bitrate,
                     "model_cache": str(Path.home() / ".cache"),
                     "outputs": [
                         {"name": stem.name, "path": stem.path.name, "sha256": _sha256(stem.path)}
@@ -457,10 +461,73 @@ class SeparationEngine:
                 "[sum]",
             ]
         command.extend(filter_args)
-        command.extend(["-ar", str(sample_rate), "-ac", str(channels), "-c:a", "pcm_s24le", str(output)])
+        command.extend(["-ar", str(sample_rate), "-ac", str(channels), *self._codec_args(output), str(output)])
         result = _run(command)
         if result.returncode != 0 or not output.is_file() or output.stat().st_size < 1024:
             raise AudioEngineError(f"No se pudo preparar la pista {output.name}.")
+
+
+    def render_transposed_stems(
+        self,
+        stems: Iterable[dict],
+        destination: str | Path,
+        semitones: int,
+        sample_rate: int,
+        channels: int,
+        duration: float,
+        progress: ProgressCallback | None = None,
+    ) -> tuple[Path, ...]:
+        """Render all session stems at a new pitch while preserving tempo and sync."""
+        if not -12 <= semitones <= 12:
+            raise AudioEngineError("La transposición debe estar entre -12 y +12 semitonos.")
+        stem_list = list(stems)
+        if not stem_list:
+            raise AudioEngineError("No hay pistas disponibles para cambiar de tonalidad.")
+        if semitones == 0:
+            return tuple(Path(item.get("base_path", item["path"])) for item in stem_list)
+
+        direction = "mas" if semitones > 0 else "menos"
+        shift_dir = Path(destination).expanduser().resolve() / f"Transpuestas {direction}-{abs(semitones)} semitonos"
+        shift_dir.mkdir(parents=True, exist_ok=True)
+        pitch = 2 ** (semitones / 12)
+        outputs: list[Path] = []
+        for index, item in enumerate(stem_list):
+            source = Path(item.get("base_path", item["path"]))
+            output = shift_dir / f"{_safe_name(Path(item['name']).stem)}.mp3"
+            partial = shift_dir / f"{_safe_name(Path(item['name']).stem)}.part.mp3"
+            if not output.is_file() or output.stat().st_size < 1024:
+                command = [
+                    "ffmpeg",
+                    "-hide_banner",
+                    "-nostdin",
+                    "-y",
+                    "-i",
+                    str(source),
+                    "-af",
+                    f"rubberband=tempo=1:pitch={pitch:.9f}",
+                    "-t",
+                    f"{max(0.1, duration):.6f}",
+                    "-ar",
+                    str(sample_rate),
+                    "-ac",
+                    str(channels),
+                    *self._codec_args(partial),
+                    str(partial),
+                ]
+                result = _run(command)
+                if result.returncode != 0 or not partial.is_file() or partial.stat().st_size < 1024:
+                    partial.unlink(missing_ok=True)
+                    raise AudioEngineError(f"No se pudo transponer {item['name']}.")
+                partial.replace(output)
+            outputs.append(output)
+            if progress:
+                progress(0.15 + 0.75 * (index + 1) / len(stem_list), f"Transponiendo {item['name']}")
+        return tuple(outputs)
+
+    def _codec_args(self, output: Path) -> list[str]:
+        if output.suffix.lower() == ".mp3":
+            return ["-c:a", "libmp3lame", "-b:a", self.mp3_bitrate, "-id3v2_version", "3"]
+        return ["-c:a", "pcm_s24le"]
 
     def mix(
         self,
@@ -479,7 +546,7 @@ class SeparationEngine:
         ]
         if not active:
             raise AudioEngineError("No hay ninguna pista audible. Desactiva Mute o Solo antes de exportar.")
-        output = Path(destination) / "StemForge - mezcla.wav"
+        output = Path(destination) / "StemForge - mezcla.mp3"
         inputs: list[str] = []
         filters: list[str] = []
         for index, item in enumerate(active):
@@ -504,15 +571,14 @@ class SeparationEngine:
             str(sample_rate),
             "-ac",
             str(channels),
-            "-c:a",
-            "pcm_s24le",
+            *self._codec_args(output),
             str(output),
         ]
         if progress:
             progress(0.12, "Mezclando las pistas sincrónicamente")
         result = _run(command)
         if result.returncode != 0 or not output.is_file():
-            raise AudioEngineError("No se pudo exportar la mezcla WAV.")
+            raise AudioEngineError("No se pudo exportar la mezcla MP3.")
         warning = None
         peak = self._max_volume(output)
         if peak is not None and peak > 0:
@@ -545,6 +611,7 @@ class SeparationEngine:
             f"- Muestreo de entrada/salida: `{info.sample_rate_label}`",
             f"- Canales: `{info.channels}` ({info.channel_layout or 'no indicado'})",
             f"- Modelo: `{MODEL_NAME}` (Demucs 6 fuentes, ejecución CPU local)",
+            "- Exportación de sesión: `MP3 320 kbps`; los WAV solo se usan como temporales internos.",
             f"- Selección: `{', '.join(sorted(selected))}`",
             "- Procesamiento: completamente local; no se ha subido el audio.",
             "",
@@ -556,7 +623,7 @@ class SeparationEngine:
             "",
             "## Notas",
             "",
-            "`Other.wav` se calcula sumando el stem Other del modelo y todas las categorías no seleccionadas. "
+            "`Other.mp3` se calcula sumando el stem Other del modelo y todas las categorías no seleccionadas. "
             "Las salidas de guitarra y piano pueden contener más filtración que voces, batería o bajo; es una limitación conocida del modelo htdemucs_6s.",
             "",
             f"Resultados: `{folder}`",
