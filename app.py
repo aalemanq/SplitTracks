@@ -29,6 +29,15 @@ ICON_DIR = Path(__file__).with_name("assets") / "icons"
 def default_output_folder() -> Path:
     return Path.home() / "Split Tracks"
 
+BADGE_LETTERS = {
+    "vocals": "V",
+    "drums": "D",
+    "bass": "B",
+    "guitar": "G",
+    "piano": "P",
+    "other": "O",
+}
+
 TRACK_ASSETS = {
     "Voces": "vocals.svg",
     "Batería completa": "drums.svg",
@@ -262,13 +271,20 @@ class MainWindow(Gtk.ApplicationWindow):
         header.set_show_title_buttons(True)
         header.set_title_widget(Gtk.Box())
 
-        brand = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
-        brand.add_css_class("header-brand")
-        brand.append(label(APP_NAME, "brand-title"))
+        brand_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        brand_row.add_css_class("header-brand")
+        logo = Gtk.Image.new_from_file(str(ICON_DIR / "logo.svg"))
+        logo.set_pixel_size(42)
+        brand_row.append(logo)
+        brand = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        name_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=0)
+        name_row.append(label("Split", "brand-title-split"))
+        name_row.append(label("Tracks", "brand-title-tracks"))
+        brand.append(name_row)
         brand.append(label("SEPARACIÓN MULTISTEM LOCAL", "brand-subtitle"))
-        brand.set_halign(Gtk.Align.START)
         brand.set_valign(Gtk.Align.CENTER)
-        header.pack_start(brand)
+        brand_row.append(brand)
+        header.pack_start(brand_row)
 
         source = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=7)
         source.add_css_class("header-source")
@@ -289,20 +305,19 @@ class MainWindow(Gtk.ApplicationWindow):
         source.append(open_audio)
         header.pack_start(source)
 
-        extract = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        extract = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
         extract.add_css_class("header-extract")
         for key in ("vocals", "drums", "bass", "guitar", "piano"):
             display_name, _kind, _color = STEM_LABELS[key]
-            toggle = Gtk.ToggleButton(label=display_name)
-            toggle.add_css_class("header-stem-toggle")
+            toggle = Gtk.ToggleButton(label=BADGE_LETTERS[key])
+            toggle.add_css_class("header-stem-badge")
             toggle.add_css_class(f"header-stem-{key}")
             toggle.set_tooltip_text(f"Conservar {display_name}")
             toggle.connect("toggled", lambda button, selected_key=key: self._header_extract_toggled(selected_key, button))
             self.header_extract_buttons[key] = toggle
             extract.append(toggle)
-        other_toggle = Gtk.Button(label="Other")
-        other_toggle.add_css_class("header-stem-toggle")
-        other_toggle.add_css_class("header-stem-other")
+        other_toggle = Gtk.Button(label="O")
+        other_toggle.add_css_class("header-stem-badge")
         other_toggle.set_sensitive(False)
         other_toggle.set_tooltip_text("Other se calcula automáticamente")
         extract.append(other_toggle)
