@@ -339,7 +339,7 @@ class SeparationEngine:
                 match = re.search(r"(?:^|\s)(\d{1,3})%", line)
                 if match and progress:
                     percent = min(100, int(match.group(1))) / 100
-                    progress(0.08 + percent * 0.70, "Separando seis pistas con Demucs")
+                    progress(0.08 + percent * 0.70, "Separando voces, batería, bajo, guitarra y piano")
             return_code = process.wait()
         except SeparationCancelled:
             shutil.rmtree(folder, ignore_errors=True)
@@ -368,11 +368,13 @@ class SeparationEngine:
             self._render_audio((raw_stems[name],), output, info.sample_rate, info.channels)
             final_stems.append(StemFile(display_name, output, color, kind))
             if progress:
-                progress(0.80 + 0.10 * (index + 1) / max(1, len(requested) + 1), f"Preparando {display_name}")
+                progress(0.80 + 0.10 * (index + 1) / max(1, len(requested) + 1), f"Separando {display_name}")
 
         complement_inputs = [raw_stems["other"]]
         complement_inputs.extend(raw_stems[name] for name in STEM_ORDER if name != "other" and name not in selected)
         other_output = folder / "Other.mp3"
+        if progress:
+            progress(0.90, "Separando Other")
         self._render_audio(tuple(complement_inputs), other_output, info.sample_rate, info.channels)
         final_stems.append(StemFile("Other", other_output, STEM_LABELS["other"][2], "complemento de las pistas no seleccionadas"))
         shutil.rmtree(raw_dir, ignore_errors=True)

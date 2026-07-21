@@ -31,8 +31,8 @@ window {
 }
 
 headerbar {
-  min-height: 66px;
-  padding: 0 20px;
+  min-height: 84px;
+  padding: 12px 24px;
   background: @sidebar;
   border: 0;
   border-bottom: 1px solid @line;
@@ -56,8 +56,8 @@ headerbar button:hover {
 }
 
 .brand-mark {
-  min-width: 40px;
-  min-height: 40px;
+  min-width: 44px;
+  min-height: 44px;
   padding: 2px;
   border: 1px solid @line-strong;
   border-radius: 13px;
@@ -318,8 +318,8 @@ entry placeholder {
 }
 
 .status-mark {
-  min-width: 34px;
-  min-height: 34px;
+  min-width: 38px;
+  min-height: 38px;
   border-radius: 11px;
   background: @cyan-soft;
   color: @cyan;
@@ -496,9 +496,38 @@ scale slider {
 }
 
 .category-icon-badge {
-  min-width: 34px;
-  min-height: 34px;
-  border-radius: 10px;
+  min-width: 38px;
+  min-height: 38px;
+  padding: 6px;
+  border-radius: 11px;
+}
+
+.other-info {
+  min-height: 54px;
+  padding: 9px 11px;
+  border: 1px solid @line;
+  border-radius: 11px;
+  background: @surface;
+}
+
+.other-info-icon {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 5px;
+  border-radius: 9px;
+  background: @green-soft;
+  color: @green;
+}
+
+.other-info-title {
+  color: @ink;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+.other-info-copy {
+  color: @muted;
+  font-size: 9px;
 }
 
 .category-name {
@@ -591,7 +620,8 @@ checkbutton.category-check:disabled {
 .track-icon-badge {
   min-width: 34px;
   min-height: 34px;
-  border-radius: 11px;
+  padding: 5px;
+  border-radius: 10px;
 }
 
 .track-icon-badge image {
