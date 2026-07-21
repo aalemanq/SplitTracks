@@ -1221,6 +1221,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self.player.pause()
             self._set_play_icon(False)
         else:
+            self.player.seek(self.timeline.get_value())
             self.player.play()
             self._set_play_icon(True)
 

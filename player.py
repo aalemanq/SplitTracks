@@ -77,7 +77,6 @@ class MixerPlayer:
         self.duration = duration
         self.update_mix(stems)
         pipeline.set_state(Gst.State.PAUSED)
-        self.seek(0.0)
 
     @staticmethod
     def _on_pad_added(_decodebin, pad, queue) -> None:
