@@ -18,9 +18,11 @@ No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una 
 
 ## Análisis musical local
 
-Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un resumen con BPM, tonalidad, LUFS y dinámica, además de un espectro compacto. También estima una progresión de triadas mayores y menores por segmentos de aproximadamente uno o dos tiempos, con una confianza media visible. Los resultados pertenecen a la mezcla cargada y se recalculan al cambiar de archivo; BPM, tonalidad y acordes son estimaciones y conviene confirmarlos de oído, especialmente en canciones con cambios de tempo, modulaciones, inversiones, acordes extendidos o mucha percusión.
+Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un resumen con BPM, tonalidad, LUFS y dinámica, además de un espectro compacto. También estima una progresión de triadas mayores y menores por segmentos de aproximadamente uno o dos segundos, mostrando los acordes y sus grados en cuatro columnas para facilitar la lectura.
 
-La detección de acordes es deliberadamente local y prudente: usa perfiles de chroma y plantillas de triadas, no consulta webs ni intenta presentar una transcripción como exacta. Las páginas de acordes pueden elegir nombres distintos para una misma sonoridad —por inversión, extensiones o simplificación—, así que la mejor validación sigue siendo escuchar el segmento y contrastarlo con el instrumento.
+La detección de acordes es deliberadamente local y prudente: usa perfiles de chroma y plantillas de triadas, aplica suavizado temporal para descartar cambios aislados de baja confianza y reconoce patrones repetidos de mezcla modal como I–III–IV–iv. No consulta webs ni presenta una transcripción como exacta. Las páginas de acordes pueden elegir nombres distintos para una misma sonoridad —por inversión, extensiones o simplificación—, así que la mejor validación sigue siendo escuchar el segmento y contrastarlo con el instrumento.
+
+La cabecera concentra ahora la URL de YouTube, la apertura de archivos locales, los accesos rápidos de extracción por stem y el botón Separar; las tarjetas laterales siguen disponibles para revisar la selección con detalle.
 
 ## Ejecutar en Ubuntu 24.04.4 LTS
 

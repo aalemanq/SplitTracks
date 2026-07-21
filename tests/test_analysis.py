@@ -7,7 +7,7 @@ from pathlib import Path
 
 if importlib.util.find_spec("numpy") is not None:
     import numpy as np
-    from analysis import analyze_audio
+    from analysis import ChordEvent, _stabilize_chords, analyze_audio
 else:
     analyze_audio = None
 
@@ -68,6 +68,18 @@ class AudioAnalysisTest(unittest.TestCase):
             self.assertIn("Am", result.chord_summary)
             self.assertEqual(result.degree_sequence[:4], ("I", "V", "vi", "IV"))
             self.assertTrue(all(event.end > event.start for event in result.chords))
+
+
+    def test_repeated_major_third_pattern_is_stabilized(self) -> None:
+        events = (
+            ChordEvent(0.0, 4.0, "G", 0.2),
+            ChordEvent(4.0, 6.0, "Bm", 0.03),
+            ChordEvent(6.0, 8.0, "B", 0.03),
+            ChordEvent(8.0, 12.0, "C", 0.2),
+            ChordEvent(12.0, 14.0, "Cm", 0.2),
+        )
+        result = _stabilize_chords(events, "G", "mayor", 1.3)
+        self.assertEqual(tuple(event.label for event in result), ("G", "B", "C", "Cm"))
 
 
 if __name__ == "__main__":

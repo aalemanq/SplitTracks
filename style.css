@@ -78,6 +78,83 @@ headerbar button:hover {
   letter-spacing: 1px;
 }
 
+.header-source {
+  min-width: 300px;
+  margin-left: 12px;
+}
+
+.header-youtube-entry,
+entry.header-youtube-entry {
+  min-width: 240px;
+  min-height: 31px;
+  background: @canvas;
+}
+
+button.header-action {
+  min-height: 31px;
+  padding: 0 9px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+.header-extract {
+  min-height: 31px;
+  margin-left: 10px;
+  padding-left: 8px;
+  border-left: 1px solid @line;
+}
+
+.header-extract-label {
+  margin-right: 2px;
+  color: @muted;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.8px;
+}
+
+button.header-stem-toggle {
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0 6px;
+  border-radius: 8px;
+  background: @surface;
+  color: @muted;
+}
+
+button.header-stem-toggle:hover,
+button.header-stem-toggle:checked {
+  border-color: @cyan;
+  background: @cyan-soft;
+  color: @ink;
+}
+
+button.header-stem-vocals:checked { border-color: @magenta; background: @magenta-soft; }
+button.header-stem-drums:checked { border-color: @orange; background: @orange-soft; }
+button.header-stem-bass:checked { border-color: @blue; background: @blue-soft; }
+button.header-stem-guitar:checked { border-color: @violet; background: @violet-soft; }
+button.header-stem-piano:checked { border-color: @yellow; background: @yellow-soft; }
+
+button.header-split-action {
+  min-height: 34px;
+  margin-left: 10px;
+  padding: 0 11px;
+  border: 0;
+  border-radius: 9px;
+  background: @yellow;
+  color: #fff8dc;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+button.header-split-action:hover {
+  background: #c79800;
+}
+
+button.header-split-action:disabled {
+  background: @surface-raised;
+  color: @dim;
+}
+
 .header-status {
   min-height: 29px;
   padding: 0 11px;

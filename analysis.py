@@ -300,10 +300,108 @@ def _chroma_frames(power: np.ndarray, frequencies: np.ndarray) -> np.ndarray:
     return (chroma / np.maximum(norms, 1e-12)).astype(np.float32)
 
 
+
+def _root_index(label: str) -> int | None:
+    if label in {"", "N"}:
+        return None
+    root_text = label[:2] if len(label) > 1 and label[1] in {"♯", "#"} else label[:1]
+    try:
+        return NOTE_NAMES.index(root_text.replace("#", "♯"))
+    except ValueError:
+        return None
+
+
+def _is_major_chord(label: str) -> bool:
+    root = _root_index(label)
+    if root is None:
+        return False
+    root_text = NOTE_NAMES[root]
+    return label == root_text
+
+
+def _merge_adjacent_chords(events: list[ChordEvent]) -> list[ChordEvent]:
+    merged: list[ChordEvent] = []
+    for event in events:
+        if merged and merged[-1].label == event.label:
+            previous = merged[-1]
+            merged[-1] = ChordEvent(
+                start=previous.start,
+                end=event.end,
+                label=event.label,
+                confidence=(previous.confidence + event.confidence) / 2.0,
+            )
+        else:
+            merged.append(event)
+    return merged
+
+
+def _stabilize_chords(
+    events: tuple[ChordEvent, ...],
+    key_name: str | None,
+    scale: str | None,
+    segment_seconds: float,
+) -> tuple[ChordEvent, ...]:
+    if not events:
+        return ()
+    stable = list(events)
+
+    # In a major key, I–III–IV–iv is a common chromatic pattern. If the
+    # repeated III position contains any major evidence, use that quality for
+    # the same contextual position instead of allowing B/Bm-style flicker.
+    try:
+        tonic = NOTE_NAMES.index((key_name or "").replace("#", "♯"))
+    except ValueError:
+        tonic = None
+    if tonic is not None and scale == "mayor":
+        chromatic_third = (tonic + 4) % 12
+        subdominant = (tonic + 5) % 12
+        promote_third = False
+        for index, event in enumerate(stable):
+            if _root_index(event.label) != chromatic_third:
+                continue
+            left = index - 1
+            while left >= 0 and _root_index(stable[left].label) == chromatic_third:
+                left -= 1
+            right = index + 1
+            while right < len(stable) and _root_index(stable[right].label) == chromatic_third:
+                right += 1
+            if left >= 0 and right < len(stable):
+                if _root_index(stable[left].label) == tonic and _root_index(stable[right].label) == subdominant:
+                    group = stable[left + 1:right]
+                    if any(_is_major_chord(candidate.label) for candidate in group):
+                        promote_third = True
+                        break
+        if promote_third:
+            major_label = NOTE_NAMES[chromatic_third]
+            for index, event in enumerate(stable):
+                if _root_index(event.label) == chromatic_third:
+                    stable[index] = ChordEvent(event.start, event.end, major_label, event.confidence)
+
+    stable = _merge_adjacent_chords(stable)
+    short_limit = max(0.8, segment_seconds * 1.15)
+    for index in range(1, len(stable) - 1):
+        event = stable[index]
+        if event.label == "N" or event.end - event.start > short_limit or event.confidence > 0.13:
+            continue
+        previous = stable[index - 1]
+        following = stable[index + 1]
+        previous_root = _root_index(previous.label)
+        following_root = _root_index(following.label)
+        if previous_root == following_root or (previous.end - previous.start) >= (following.end - following.start):
+            replacement = previous
+        else:
+            replacement = following
+        stable[index] = ChordEvent(event.start, event.end, replacement.label, event.confidence)
+
+    return tuple(_merge_adjacent_chords(stable))
+
+
 def _detect_chords(
     chroma: np.ndarray,
     bpm: float | None,
     duration: float,
+    key_name: str | None = None,
+    scale: str | None = None,
 ) -> tuple[ChordEvent, ...]:
     if chroma.size == 0 or chroma.shape[0] < 4:
         return ()
@@ -354,7 +452,7 @@ def _detect_chords(
             )
         else:
             events.append(ChordEvent(start=start, end=end, label=label, confidence=confidence))
-    return tuple(events)
+    return _stabilize_chords(tuple(events), key_name, scale, segment_seconds)
 
 
 def _measure_loudness(path: Path) -> float | None:
@@ -394,7 +492,7 @@ def analyze_audio(path: str | Path) -> AudioAnalysis:
     bpm, tempo_confidence = _detect_tempo(magnitude)
     key_name, scale, key_confidence = _detect_key(power, frequencies)
     chroma = _chroma_frames(power, frequencies)
-    chords = _detect_chords(chroma, bpm, samples.size / SAMPLE_RATE)
+    chords = _detect_chords(chroma, bpm, samples.size / SAMPLE_RATE, key_name, scale)
     peak_dbfs = _db(float(np.max(np.abs(samples))))
     return AudioAnalysis(
         bpm=bpm,

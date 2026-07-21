@@ -268,6 +268,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.cancel_event: threading.Event | None = None
         self.youtube_temp_dir: Path | None = None
         self.track_checks: dict[str, Gtk.CheckButton] = {}
+        self.header_extract_buttons: dict[str, Gtk.ToggleButton] = {}
+        self.header_split_button: Gtk.Button | None = None
+        self._syncing_header_extract = False
         self._busy = False
         self._updating_timeline = False
         self.pitch_shift = 0
@@ -288,11 +291,13 @@ class MainWindow(Gtk.ApplicationWindow):
             Gdk.Display.get_default(), provider, Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
         )
 
+
     def _build_header(self) -> None:
         header = Gtk.HeaderBar()
         header.add_css_class("topbar")
         header.set_show_title_buttons(True)
         header.set_title_widget(Gtk.Box())
+
         brand = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=11)
         mark = Gtk.Box()
         mark.add_css_class("brand-mark")
@@ -311,22 +316,55 @@ class MainWindow(Gtk.ApplicationWindow):
         brand.set_valign(Gtk.Align.CENTER)
         header.pack_start(brand)
 
+        source = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        source.add_css_class("header-source")
+        source.set_hexpand(True)
+        self.youtube_entry = Gtk.Entry()
+        self.youtube_entry.add_css_class("header-youtube-entry")
+        self.youtube_entry.set_placeholder_text("https://www.youtube.com/watch?v=…")
+        self.youtube_entry.set_hexpand(True)
+        self.youtube_entry.connect("activate", self._download_youtube)
+        source.append(self.youtube_entry)
+        self.youtube_button = icon_button("Descargar", "go-down-symbolic", "header-action")
+        self.youtube_button.connect("clicked", self._download_youtube)
+        source.append(self.youtube_button)
+        open_audio = icon_button("Abrir audio", "document-open-symbolic", "header-action")
+        open_audio.connect("clicked", self._choose_audio)
+        source.append(open_audio)
+        header.pack_start(source)
+
+        extract = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        extract.add_css_class("header-extract")
+        extract.append(label("EXTRAER", "header-extract-label"))
+        for key in ("vocals", "drums", "bass", "guitar", "piano"):
+            display_name, _kind, _color = STEM_LABELS[key]
+            toggle = Gtk.ToggleButton()
+            toggle.add_css_class("header-stem-toggle")
+            toggle.add_css_class(f"header-stem-{key}")
+            toggle.set_child(centered_image(ui_asset(CATEGORY_ASSETS[key], 17)))
+            toggle.set_tooltip_text(f"Conservar {display_name}")
+            toggle.connect("toggled", lambda button, selected_key=key: self._header_extract_toggled(selected_key, button))
+            self.header_extract_buttons[key] = toggle
+            extract.append(toggle)
+        other_toggle = Gtk.Button()
+        other_toggle.add_css_class("header-stem-toggle")
+        other_toggle.add_css_class("header-stem-other")
+        other_toggle.set_child(centered_image(ui_asset("other.svg", 17)))
+        other_toggle.set_sensitive(False)
+        other_toggle.set_tooltip_text("Other se calcula automáticamente")
+        extract.append(other_toggle)
+        header.pack_start(extract)
+
+        self.header_split_button = icon_button("Separar", "media-playback-start-symbolic", "header-split-action")
+        self.header_split_button.set_sensitive(False)
+        self.header_split_button.connect("clicked", self._start_or_cancel)
+        header.pack_end(self.header_split_button)
+
         local = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=7)
         local.add_css_class("header-status")
         local.append(ui_icon("computer-symbolic", 14))
         local.append(label("PROCESAMIENTO LOCAL", "header-status-label"))
         local.set_tooltip_text("El audio se procesa en este equipo")
-        capabilities = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
-        capabilities.add_css_class("header-capabilities")
-        dots = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
-        for css in ("dot-cyan", "dot-yellow", "dot-magenta"):
-            dot = Gtk.Box()
-            dot.add_css_class("header-dot")
-            dot.add_css_class(css)
-            dots.append(dot)
-        capabilities.append(dots)
-        capabilities.append(label("Voces · batería · 6 stems", "header-capability"))
-        header.pack_end(capabilities)
         header.pack_end(local)
         self.set_titlebar(header)
 
@@ -350,6 +388,9 @@ class MainWindow(Gtk.ApplicationWindow):
         flow = Gtk.FlowBox()
         flow.add_css_class("chord-flow")
         flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        flow.set_homogeneous(True)
+        flow.set_min_children_per_line(4)
+        flow.set_max_children_per_line(4)
         flow.set_row_spacing(4)
         flow.set_column_spacing(4)
         flow.set_hexpand(True)
@@ -412,15 +453,11 @@ class MainWindow(Gtk.ApplicationWindow):
         body.set_margin_end(20)
         scroll.set_child(body)
 
-        body.append(label("01  ·  MEZCLA", "eyebrow"))
-        body.append(label("Carga tu mezcla", "page-title"))
-        body.append(label("Carga un audio estéreo o pega un enlace de YouTube; después escucha el resultado en un mismo reloj.", "page-subtitle", wrap=True))
-
         source_card = self._card()
         source_card.add_css_class("source-card")
         source_heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         source_heading.append(ui_icon("audio-x-generic-symbolic", 17))
-        source_heading.append(label("Fuente de audio", "card-title"))
+        source_heading.append(label("Audio local", "card-title"))
         source_card.append(source_heading)
         source_card.append(label("WAV · FLAC · OGG · MP3 · M4A", "card-caption"))
         drop = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
@@ -440,20 +477,6 @@ class MainWindow(Gtk.ApplicationWindow):
         target.connect("drop", self._drop_audio)
         drop.add_controller(target)
         source_card.append(drop)
-
-        source_card.append(Gtk.Separator(orientation=Gtk.Orientation.HORIZONTAL))
-        source_card.append(label("O pega un enlace de YouTube", "card-title"))
-        source_card.append(label("Se descarga solo el audio y se guarda como archivo temporal local.", "card-caption", wrap=True))
-        youtube_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.youtube_entry = Gtk.Entry()
-        self.youtube_entry.set_placeholder_text("https://www.youtube.com/watch?v=…")
-        self.youtube_entry.set_hexpand(True)
-        self.youtube_entry.connect("activate", self._download_youtube)
-        youtube_row.append(self.youtube_entry)
-        self.youtube_button = icon_button("Descargar", "go-down-symbolic")
-        self.youtube_button.connect("clicked", self._download_youtube)
-        youtube_row.append(self.youtube_button)
-        source_card.append(youtube_row)
 
         self.file_card = self._card()
         self.file_card.set_visible(False)
@@ -553,6 +576,7 @@ class MainWindow(Gtk.ApplicationWindow):
         other_row.set_visible(False)
         other_row.set_tooltip_text("Se genera siempre sumando el Other del modelo y las pistas no seleccionadas")
         self.track_checks["other"] = other_row
+        self._sync_header_extract_buttons()
         other_info.append(other_row)
         category_grid.attach(other_info, 0, 3, 2, 1)
         extract_card.append(category_grid)
@@ -746,6 +770,12 @@ class MainWindow(Gtk.ApplicationWindow):
         empty.append(copy)
         return empty
 
+
+    def _set_separation_button_text(self, text: str) -> None:
+        set_icon_button_text(self.separate_button, text)
+        if self.header_split_button:
+            set_icon_button_text(self.header_split_button, "Cancelar" if text.startswith("Cancelar") else "Separar")
+
     def _download_youtube(self, _button) -> None:
         if self._busy:
             return
@@ -756,7 +786,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._busy = True
         self.cancel_event = threading.Event()
         self.youtube_button.set_sensitive(False)
-        set_icon_button_text(self.separate_button, "Cancelar descarga")
+        self._set_separation_button_text("Cancelar descarga")
         self.progress.set_visible(True)
         self.progress.set_fraction(0.0)
         self._set_status("Descargando audio", "La descarga se procesa localmente para esta sesión", "DESCARGANDO")
@@ -782,7 +812,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._busy = False
         self.cancel_event = None
         self.youtube_button.set_sensitive(True)
-        set_icon_button_text(self.separate_button, "Separar y preparar pistas")
+        self._set_separation_button_text("Separar y preparar pistas")
         self.progress.set_visible(False)
         self.youtube_temp_dir = result.temporary_dir
         self._load_audio(str(result.path), keep_youtube_temp=True)
@@ -878,6 +908,26 @@ class MainWindow(Gtk.ApplicationWindow):
             self.folder_label.set_text(str(self.output_folder))
             self._update_start_state()
 
+    def _sync_header_extract_buttons(self) -> None:
+        if not self.header_extract_buttons or not self.track_checks:
+            return
+        self._syncing_header_extract = True
+        try:
+            for key, button in self.header_extract_buttons.items():
+                check = self.track_checks.get(key)
+                if check:
+                    button.set_active(check.get_active())
+        finally:
+            self._syncing_header_extract = False
+
+    def _header_extract_toggled(self, key: str, button: Gtk.ToggleButton) -> None:
+        if self._syncing_header_extract:
+            return
+        check = self.track_checks.get(key)
+        if check:
+            check.set_active(button.get_active())
+        self._selection_changed()
+
     def _set_available(self, active: bool) -> None:
         for key, check in self.track_checks.items():
             if key != "other":
@@ -885,12 +935,15 @@ class MainWindow(Gtk.ApplicationWindow):
         self._selection_changed()
 
     def _selection_changed(self, *_args) -> None:
+        self._sync_header_extract_buttons()
         self._update_start_state()
 
     def _update_start_state(self) -> None:
         selected = any(check.get_active() for key, check in self.track_checks.items() if key != "other")
         ready = bool(self.audio_info and self.output_folder and selected and self.audio_info.channels == 2)
         self.separate_button.set_sensitive(ready or self._busy)
+        if self.header_split_button:
+            self.header_split_button.set_sensitive(ready or self._busy)
 
     def _start_or_cancel(self, _button) -> None:
         if self._busy:
@@ -905,7 +958,7 @@ class MainWindow(Gtk.ApplicationWindow):
             return
         self._busy = True
         self.cancel_event = threading.Event()
-        set_icon_button_text(self.separate_button, "Cancelar separación")
+        self._set_separation_button_text("Cancelar separación")
         self.progress.set_visible(True)
         self.progress.set_fraction(0.0)
         self._set_status("Preparando separación", "Demucs 6s se ejecuta únicamente en este equipo", "PROCESANDO")
@@ -942,7 +995,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.pitch_shift = 0
         self._saved_pitch_shift = 0
         self._set_pitch_display()
-        set_icon_button_text(self.separate_button, "Separar y preparar pistas")
+        self._set_separation_button_text("Separar y preparar pistas")
         self.progress.set_visible(False)
         self._load_stems(result)
         self._cleanup_youtube_temp()
@@ -1086,6 +1139,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_pitch_controls(False)
         self.youtube_button.set_sensitive(False)
         self.separate_button.set_sensitive(False)
+        if self.header_split_button:
+            self.header_split_button.set_sensitive(False)
         self.export_button.set_sensitive(False)
         self.progress.set_visible(True)
         self.progress.set_fraction(0.0)
@@ -1190,7 +1245,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.cancel_event = None
         self.progress.set_visible(False)
         self.youtube_button.set_sensitive(True)
-        set_icon_button_text(self.separate_button, "Separar y preparar pistas")
+        self._set_separation_button_text("Separar y preparar pistas")
         self._cleanup_youtube_temp()
         self._set_status("Separación cancelada", detail, "CANCELADO", pending=True)
         self.sidebar_status.set_text("No se han conservado archivos parciales.")
@@ -1202,7 +1257,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.cancel_event = None
         self.progress.set_visible(False)
         self.youtube_button.set_sensitive(True)
-        set_icon_button_text(self.separate_button, "Separar y preparar pistas")
+        self._set_separation_button_text("Separar y preparar pistas")
         self._cleanup_youtube_temp()
         self._set_status("No se pudo completar", detail, "REVISAR", pending=True)
         self.sidebar_status.set_text(detail)
