@@ -20,21 +20,22 @@ from player import MixerPlayer
 
 
 APP_NAME = "StemForge"
+ICON_DIR = Path(__file__).with_name("assets") / "icons"
 
-TRACK_ICONS = {
-    "Voces": "audio-input-microphone-symbolic",
-    "Batería completa": "media-record-symbolic",
-    "Bajo": "audio-x-generic-symbolic",
-    "Guitarra": "audio-x-generic-symbolic",
-    "Piano y teclados": "audio-card-symbolic",
-    "Other": "audio-x-generic-symbolic",
+TRACK_ASSETS = {
+    "Voces": "vocals.svg",
+    "Batería completa": "drums.svg",
+    "Bajo": "bass.svg",
+    "Guitarra": "guitar.svg",
+    "Piano y teclados": "piano.svg",
+    "Other": "other.svg",
 }
-CATEGORY_ICONS = {
-    "vocals": "audio-input-microphone-symbolic",
-    "drums": "media-record-symbolic",
-    "bass": "audio-x-generic-symbolic",
-    "guitar": "audio-x-generic-symbolic",
-    "piano": "audio-card-symbolic",
+CATEGORY_ASSETS = {
+    "vocals": "vocals.svg",
+    "drums": "drums.svg",
+    "bass": "bass.svg",
+    "guitar": "guitar.svg",
+    "piano": "piano.svg",
 }
 TRACK_CLASSES = {
     "Voces": "track-vocals",
@@ -48,6 +49,14 @@ TRACK_CLASSES = {
 
 def ui_icon(name: str, size: int = 16, css: str | None = None) -> Gtk.Image:
     image = Gtk.Image.new_from_icon_name(name)
+    image.set_pixel_size(size)
+    if css:
+        image.add_css_class(css)
+    return image
+
+
+def ui_asset(name: str, size: int = 18, css: str | None = None) -> Gtk.Image:
+    image = Gtk.Image.new_from_file(str(ICON_DIR / name))
     image.set_pixel_size(size)
     if css:
         image.add_css_class(css)
@@ -142,7 +151,7 @@ class TrackRow(Gtk.Box):
         icon_badge = Gtk.Box()
         icon_badge.add_css_class("track-icon-badge")
         icon_badge.add_css_class(TRACK_CLASSES.get(stem["name"], "track-other"))
-        icon_badge.append(ui_icon(TRACK_ICONS.get(stem["name"], "audio-x-generic-symbolic"), 17))
+        icon_badge.append(ui_asset(TRACK_ASSETS.get(stem["name"], "other.svg"), 18))
         self.append(icon_badge)
 
         info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -235,7 +244,7 @@ class MainWindow(Gtk.ApplicationWindow):
         brand = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=11)
         mark = Gtk.Box()
         mark.add_css_class("brand-mark")
-        mark.append(ui_icon("audio-x-generic-symbolic", 21))
+        mark.append(ui_asset("logo.svg", 31))
         brand.append(mark)
         titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         titles.append(label(APP_NAME, "brand-title"))
@@ -248,6 +257,17 @@ class MainWindow(Gtk.ApplicationWindow):
         local.append(ui_icon("computer-symbolic", 14))
         local.append(label("PROCESAMIENTO LOCAL", "header-status-label"))
         local.set_tooltip_text("El audio se procesa en este equipo")
+        capabilities = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=6)
+        capabilities.add_css_class("header-capabilities")
+        dots = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        for css in ("dot-cyan", "dot-yellow", "dot-magenta"):
+            dot = Gtk.Box()
+            dot.add_css_class("header-dot")
+            dot.add_css_class(css)
+            dots.append(dot)
+        capabilities.append(dots)
+        capabilities.append(label("Voces · batería · 6 stems", "header-capability"))
+        header.pack_end(capabilities)
         header.pack_end(local)
         self.set_titlebar(header)
 
@@ -280,8 +300,8 @@ class MainWindow(Gtk.ApplicationWindow):
         body.set_margin_end(20)
         scroll.set_child(body)
 
-        body.append(label("01  ·  NUEVA SESIÓN", "eyebrow"))
-        body.append(label("Divide tu mezcla", "page-title"))
+        body.append(label("01  ·  MEZCLA", "eyebrow"))
+        body.append(label("Carga tu mezcla", "page-title"))
         body.append(label("Carga un audio estéreo o pega un enlace de YouTube; después escucha el resultado en un mismo reloj.", "page-subtitle", wrap=True))
 
         source_card = self._card()
@@ -335,8 +355,7 @@ class MainWindow(Gtk.ApplicationWindow):
         extract_card = self._card()
         extract_card.add_css_class("extract-card")
         extract_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        extract_header.append(ui_icon("view-grid-symbolic", 16))
-        extract_header.append(label("Qué extraer", "card-title"))
+        extract_header.append(label("02  ·  QUÉ EXTRAER", "eyebrow"))
         all_button = icon_button("Todas", "emblem-ok-symbolic", "compact-action")
         all_button.set_hexpand(True)
         all_button.set_halign(Gtk.Align.END)
@@ -353,35 +372,58 @@ class MainWindow(Gtk.ApplicationWindow):
         category_grid.set_column_homogeneous(True)
         for index, key in enumerate(("vocals", "drums", "bass", "guitar", "piano")):
             display_name, kind, _color = STEM_LABELS[key]
-            category = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+            category = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
             category.add_css_class("category-card")
             category.add_css_class(f"category-{key}")
             category.set_hexpand(True)
-            category.append(ui_icon(CATEGORY_ICONS[key], 16, "category-icon"))
-            check = Gtk.CheckButton(label=display_name)
+            icon_badge = Gtk.Box()
+            icon_badge.add_css_class("category-icon-badge")
+            icon_badge.append(ui_asset(CATEGORY_ASSETS[key], 21))
+            category.append(icon_badge)
+            copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+            copy.set_hexpand(True)
+            copy.set_valign(Gtk.Align.CENTER)
+            copy.append(label(display_name, "category-name"))
+            copy.append(label(kind, "category-note", wrap=True))
+            category.append(copy)
+            check = Gtk.CheckButton()
             check.add_css_class("category-check")
+            check.add_css_class(f"category-check-{key}")
             check.set_active(True)
+            check.set_halign(Gtk.Align.END)
+            check.set_valign(Gtk.Align.CENTER)
             check.connect("toggled", self._selection_changed)
             self.track_checks[key] = check
             category.append(check)
-            category.append(label(kind, "category-note", wrap=True))
             category_grid.attach(category, index % 2, index // 2, 1, 1)
-        other_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        other_card = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
         other_card.add_css_class("category-card")
         other_card.add_css_class("category-other")
-        other_row = Gtk.CheckButton(label="Other")
+        other_icon = Gtk.Box()
+        other_icon.add_css_class("category-icon-badge")
+        other_icon.append(ui_asset("other.svg", 21))
+        other_card.append(other_icon)
+        other_copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        other_copy.set_hexpand(True)
+        other_copy.set_valign(Gtk.Align.CENTER)
+        other_copy.append(label("Other", "category-name"))
+        other_copy.append(label("Complemento automático", "category-note"))
+        other_card.append(other_copy)
+        other_row = Gtk.CheckButton()
         other_row.add_css_class("category-check")
+        other_row.add_css_class("category-check-other")
         other_row.set_active(True)
         other_row.set_sensitive(False)
+        other_row.set_halign(Gtk.Align.END)
+        other_row.set_valign(Gtk.Align.CENTER)
         other_row.set_tooltip_text("Se genera siempre sumando el Other del modelo y las pistas no seleccionadas")
         self.track_checks["other"] = other_row
-        other_card.append(ui_icon("audio-x-generic-symbolic", 16, "category-icon"))
         other_card.append(other_row)
-        other_card.append(label("Complemento automático", "category-note"))
         category_grid.attach(other_card, 0, 3, 2, 1)
         extract_card.append(category_grid)
         body.append(extract_card)
 
+        body.append(label("03  ·  CARPETA DE TRABAJO", "eyebrow"))
         output_card = self._card()
         output_card.append(label("Carpeta de trabajo", "card-title"))
         output_card.append(label("Las pistas y mezclas se guardan como MP3 320 kbps; el WAV solo es temporal interno.", "card-caption", wrap=True))

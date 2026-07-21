@@ -56,11 +56,12 @@ headerbar button:hover {
 }
 
 .brand-mark {
-  min-width: 38px;
-  min-height: 38px;
-  border-radius: 12px;
-  background: @cyan;
-  color: @canvas;
+  min-width: 40px;
+  min-height: 40px;
+  padding: 2px;
+  border: 1px solid @line-strong;
+  border-radius: 13px;
+  background: #052b34;
 }
 
 .brand-title {
@@ -92,6 +93,29 @@ headerbar button:hover {
   font-weight: 800;
   letter-spacing: 0.6px;
 }
+
+.header-capabilities {
+  min-height: 27px;
+  padding: 0 8px;
+  border-radius: 14px;
+  background: @surface;
+}
+
+.header-capability {
+  color: @muted;
+  font-size: 9px;
+  font-weight: 750;
+}
+
+.header-dot {
+  min-width: 6px;
+  min-height: 6px;
+  border-radius: 50%;
+}
+
+.dot-cyan { background: @cyan; }
+.dot-yellow { background: @yellow; }
+.dot-magenta { background: @magenta; }
 
 .app-root,
 .workspace,
@@ -460,7 +484,7 @@ scale slider {
 
 .category-card {
   min-height: 61px;
-  padding: 8px 9px;
+  padding: 8px 10px;
   border: 1px solid @line;
   border-radius: 11px;
   background: @surface-soft;
@@ -471,19 +495,21 @@ scale slider {
   background: @surface-raised;
 }
 
-.category-check {
+.category-icon-badge {
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 10px;
+}
+
+.category-name {
   color: @ink;
   font-size: 11px;
-  font-weight: 800;
+  font-weight: 850;
 }
 
 .category-note {
   color: @muted;
   font-size: 9px;
-}
-
-.category-icon {
-  color: @cyan;
 }
 
 .category-vocals { background: @magenta-soft; }
@@ -493,12 +519,56 @@ scale slider {
 .category-piano { background: @yellow-soft; }
 .category-other { background: @green-soft; }
 
-.category-vocals .category-icon { color: @magenta; }
-.category-drums .category-icon { color: @orange; }
-.category-bass .category-icon { color: @blue; }
-.category-guitar .category-icon { color: @violet; }
-.category-piano .category-icon { color: @yellow; }
-.category-other .category-icon { color: @green; }
+.category-vocals .category-icon-badge { background: #5b3152; }
+.category-drums .category-icon-badge { background: #653a2b; }
+.category-bass .category-icon-badge { background: #214b68; }
+.category-guitar .category-icon-badge { background: #403d74; }
+.category-piano .category-icon-badge { background: #5a4a21; }
+.category-other .category-icon-badge { background: #31533c; }
+
+checkbutton.category-check {
+  min-width: 23px;
+  min-height: 23px;
+  padding: 0;
+  border: 1px solid @line-strong;
+  border-radius: 50%;
+  background: @surface-raised;
+}
+
+checkbutton.category-check check {
+  min-width: 15px;
+  min-height: 15px;
+  margin: 3px;
+  border: 1px solid @muted;
+  border-radius: 50%;
+  background: transparent;
+}
+
+checkbutton.category-check:checked {
+  background: @cyan-soft;
+}
+
+checkbutton.category-check:checked check {
+  border-color: @cyan;
+  background: @cyan;
+}
+
+checkbutton.category-check-vocals:checked,
+checkbutton.category-check-vocals:checked check { border-color: @magenta; background: @magenta; }
+checkbutton.category-check-drums:checked,
+checkbutton.category-check-drums:checked check { border-color: @orange; background: @orange; }
+checkbutton.category-check-bass:checked,
+checkbutton.category-check-bass:checked check { border-color: @blue; background: @blue; }
+checkbutton.category-check-guitar:checked,
+checkbutton.category-check-guitar:checked check { border-color: @violet; background: @violet; }
+checkbutton.category-check-piano:checked,
+checkbutton.category-check-piano:checked check { border-color: @yellow; background: @yellow; }
+checkbutton.category-check-other:checked,
+checkbutton.category-check-other:checked check { border-color: @green; background: @green; }
+
+checkbutton.category-check:disabled {
+  opacity: 0.65;
+}
 
 .folder-path {
   color: #a9c66a;
