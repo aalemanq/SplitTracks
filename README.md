@@ -16,6 +16,12 @@ La calidad depende mucho de la mezcla de origen. En canciones con bajo muy compr
 
 No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una aplicación de uso personal.
 
+## Biblioteca local
+
+Los archivos de audio locales se mantienen en su ubicación original: Split Tracks no los mueve, copia ni elimina. Al analizarlos, la aplicación guarda una referencia y sus metadatos básicos en `~/.local/share/split-tracks/library.sqlite3` (o dentro de XDG_DATA_HOME si está configurada). Desde ahí se conservarán los favoritos y, más adelante, el análisis musical y las miniaturas. Los archivos descargados de YouTube seguirán siendo temporales hasta que se implemente su almacenamiento persistente.
+
+
+
 ## Ejecutar en Ubuntu 24.04.4 LTS
 
 Dependencias del sistema:

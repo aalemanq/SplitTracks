@@ -16,6 +16,7 @@ gi.require_version("Gst", "1.0")
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk
 
 from engine import AudioEngineError, SeparationCancelled, SeparationEngine, SeparationResult, STEM_LABELS, STEM_ORDER
+from library import Library, LibraryError
 from player import MixerPlayer
 
 
@@ -228,6 +229,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.set_default_size(1420, 900)
         self.set_size_request(1080, 720)
         self.engine = SeparationEngine()
+        try:
+            self.library: Library | None = Library()
+        except LibraryError:
+            self.library = None
         self.player = MixerPlayer(on_error=self._player_error, on_eos=self._player_eos)
         self.input_path: Path | None = None
         self.audio_info = None
@@ -236,8 +241,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_states: list[dict] = []
         self.cancel_event: threading.Event | None = None
         self.youtube_temp_dir: Path | None = None
+        self.library_track_id: str | None = None
         self.track_checks: dict[str, Gtk.CheckButton] = {}
         self._busy = False
+        self._updating_favorite = False
         self._updating_timeline = False
         self.pitch_shift = 0
         self._saved_pitch_shift = 0
@@ -373,9 +380,20 @@ class MainWindow(Gtk.ApplicationWindow):
 
         self.file_card = self._card()
         self.file_card.set_visible(False)
+        file_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        file_header.set_hexpand(True)
         self.file_name = label("", "file-name")
+        self.file_name.set_hexpand(True)
+        file_header.append(self.file_name)
+        self.favorite_button = Gtk.ToggleButton()
+        self.favorite_button.add_css_class("favorite-toggle")
+        self.favorite_button.set_child(ui_icon("emblem-favorite-symbolic", 15))
+        self.favorite_button.set_tooltip_text("Añadir a favoritos")
+        self.favorite_button.set_sensitive(False)
+        self.favorite_button.connect("toggled", self._favorite_toggled)
+        file_header.append(self.favorite_button)
         self.file_meta = label("", "file-meta")
-        self.file_card.append(self.file_name)
+        self.file_card.append(file_header)
         self.file_card.append(self.file_meta)
         body.append(source_card)
         body.append(self.file_card)
@@ -718,6 +736,12 @@ class MainWindow(Gtk.ApplicationWindow):
         if not keep_youtube_temp:
             self._cleanup_youtube_temp()
         self.input_path = Path(path).expanduser().resolve()
+        self.library_track_id = None
+        self._updating_favorite = True
+        self.favorite_button.set_active(False)
+        self._updating_favorite = False
+        self.favorite_button.set_sensitive(False)
+        self.favorite_button.set_tooltip_text("Añadir a favoritos")
         self.pitch_shift = 0
         self._saved_pitch_shift = 0
         self._set_pitch_display()
@@ -736,6 +760,28 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _probe_success(self, info) -> bool:
         self.audio_info = info
+        if self.youtube_temp_dir is None and self.library is not None:
+            try:
+                record = self.library.upsert_track(
+                    path=info.path,
+                    title=info.filename,
+                    duration=info.duration,
+                    format_name=info.format_name,
+                    sample_rate=info.sample_rate,
+                    channels=info.channels,
+                )
+                self.library_track_id = record.track_id
+                self._updating_favorite = True
+                self.favorite_button.set_active(record.favorite)
+                self._updating_favorite = False
+                self.favorite_button.set_sensitive(True)
+                self.favorite_button.set_tooltip_text(
+                    "Quitar de favoritos" if record.favorite else "Añadir a favoritos"
+                )
+            except LibraryError as exc:
+                self.sidebar_status.set_text(
+                    f"Audio listo, pero la biblioteca no pudo registrar la pista: {exc}"
+                )
         self.file_meta.set_text(f"{info.format_name}  ·  {info.duration_label}  ·  {info.sample_rate_label}  ·  {info.channels} ch")
         if info.channels == 2:
             self._set_status("Mezcla lista", "Estéreo detectado · Demucs puede preparar seis categorías", "LISTO")
@@ -745,6 +791,24 @@ class MainWindow(Gtk.ApplicationWindow):
             self.sidebar_status.set_text("Este build necesita una entrada estéreo para separar seis categorías reales.")
         self._update_start_state()
         return False
+
+    def _favorite_toggled(self, button) -> None:
+        if self._updating_favorite:
+            return
+        if not self.library_track_id or self.library is None:
+            self._updating_favorite = True
+            button.set_active(False)
+            self._updating_favorite = False
+            return
+        favorite = button.get_active()
+        try:
+            self.library.set_favorite(self.library_track_id, favorite)
+            button.set_tooltip_text("Quitar de favoritos" if favorite else "Añadir a favoritos")
+        except LibraryError as exc:
+            self._updating_favorite = True
+            button.set_active(not favorite)
+            self._updating_favorite = False
+            self._set_status("Biblioteca no disponible", str(exc), "REVISAR", pending=True)
 
     def _choose_folder(self, _button) -> None:
         dialog = Gtk.FileDialog(title="Elegir carpeta de trabajo")
