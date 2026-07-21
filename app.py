@@ -352,6 +352,9 @@ class MainWindow(Gtk.ApplicationWindow):
         for value in values:
             chip = label(value or "—", "chord-chip")
             chip.set_xalign(0.5)
+            # Reserve the same cell width for every pitch so the four-column
+            # grid stays still when a root changes from C to C♯/D♭.
+            chip.set_size_request(64, 32)
             chip.set_tooltip_text(f"{section_title} · cifrado de la fuente")
             flow.append(chip)
         return flow
