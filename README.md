@@ -16,15 +16,11 @@ La calidad depende mucho de la mezcla de origen. En canciones con bajo muy compr
 
 No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una aplicación de uso personal.
 
-## Biblioteca local
-
-Los archivos de audio locales se mantienen en su ubicación original: Split Tracks no los mueve, copia ni elimina. Al analizarlos, la aplicación guarda una referencia y sus metadatos básicos en `~/.local/share/split-tracks/library.sqlite3` (o dentro de XDG_DATA_HOME si está configurada). Desde ahí se conservan los favoritos y el análisis musical de cada pista: BPM estimado, tonalidad/escala, LUFS integrados, pico, rango dinámico y un resumen del espectro. La interfaz incluye búsqueda por título o ruta, filtro de favoritos y carga directa desde la ubicación original. La aplicación solo guarda referencias y metadatos; no mueve, copia ni elimina el audio original. Los archivos descargados de YouTube siguen siendo temporales hasta que se implemente su almacenamiento persistente.
-
-
-
 ## Análisis musical local
 
-Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un resumen con BPM, tonalidad, LUFS y dinámica, además de un espectro compacto; los valores completos quedan en SQLite para usarlos después en la biblioteca y el reproductor. BPM y tonalidad son estimaciones y conviene confirmarlos de oído, especialmente en canciones con cambios de tempo, modulaciones o mucha percusión.
+Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un resumen con BPM, tonalidad, LUFS y dinámica, además de un espectro compacto. También estima una progresión de triadas mayores y menores por segmentos de aproximadamente uno o dos tiempos, con una confianza media visible. Los resultados pertenecen a la mezcla cargada y se recalculan al cambiar de archivo; BPM, tonalidad y acordes son estimaciones y conviene confirmarlos de oído, especialmente en canciones con cambios de tempo, modulaciones, inversiones, acordes extendidos o mucha percusión.
+
+La detección de acordes es deliberadamente local y prudente: usa perfiles de chroma y plantillas de triadas, no consulta webs ni intenta presentar una transcripción como exacta. Las páginas de acordes pueden elegir nombres distintos para una misma sonoridad —por inversión, extensiones o simplificación—, así que la mejor validación sigue siendo escuchar el segmento y contrastarlo con el instrumento.
 
 ## Ejecutar en Ubuntu 24.04.4 LTS
 
@@ -68,7 +64,7 @@ Cada sesión genera `INFORME.md` y `PROVENANCE.json` con el modelo, categorías,
 ## Verificación rápida
 
 ```bash
-python3 -m py_compile app.py analysis.py engine.py library.py player.py
+python3 -m py_compile app.py analysis.py engine.py player.py
 ./.venv/bin/python -c "import torch, torchaudio, demucs; print(torch.__version__, torch.cuda.is_available())"
 ```
 

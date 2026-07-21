@@ -27,6 +27,23 @@ MINOR_PROFILE = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 
 SAMPLE_RATE = 11025
 FFT_SIZE = 2048
 HOP_SIZE = 512
+ANALYSIS_DURATION_SECONDS = 180.0
+
+
+@dataclass(frozen=True)
+class ChordEvent:
+    start: float
+    end: float
+    label: str
+    confidence: float
+
+    def as_dict(self) -> dict[str, object]:
+        return {
+            "start": self.start,
+            "end": self.end,
+            "label": self.label,
+            "confidence": self.confidence,
+        }
 
 
 @dataclass(frozen=True)
@@ -40,6 +57,7 @@ class AudioAnalysis:
     peak_dbfs: float | None
     dynamic_range_db: float | None
     spectrum: tuple[float, ...]
+    chords: tuple[ChordEvent, ...] = ()
 
     @property
     def key_label(self) -> str | None:
@@ -60,6 +78,28 @@ class AudioAnalysis:
             parts.append(f"Dinámica {self.dynamic_range_db:.1f} dB")
         return "  ·  ".join(parts) or "Análisis musical no disponible"
 
+    @property
+    def chord_summary(self) -> str:
+        items: list[str] = []
+        previous_label: str | None = None
+        for event in self.chords:
+            if event.label == "N" or event.label == previous_label:
+                continue
+            minutes, seconds = divmod(max(0, int(event.start)), 60)
+            items.append(f"{minutes}:{seconds:02d} {event.label}")
+            previous_label = event.label
+        if not items:
+            return "Progresión de acordes no disponible"
+        if len(items) > 24:
+            items = [*items[:24], "…"]
+        valid_events = [event for event in self.chords if event.label != "N"]
+        confidence = (
+            sum(event.confidence for event in valid_events) / len(valid_events)
+            if valid_events
+            else 0.0
+        )
+        return f"Progresión: {'  ·  '.join(items)}  ·  confianza {confidence:.0%}"
+
     def as_dict(self) -> dict[str, object]:
         return {
             "bpm": self.bpm,
@@ -71,6 +111,7 @@ class AudioAnalysis:
             "peak_dbfs": self.peak_dbfs,
             "dynamic_range_db": self.dynamic_range_db,
             "spectrum": list(self.spectrum),
+            "chords": [event.as_dict() for event in self.chords],
         }
 
 
@@ -82,6 +123,8 @@ def _decode_mono(path: Path) -> np.ndarray:
         "error",
         "-i",
         str(path),
+        "-t",
+        str(ANALYSIS_DURATION_SECONDS),
         "-ac",
         "1",
         "-ar",
@@ -191,13 +234,87 @@ def _spectrum(power: np.ndarray, frequencies: np.ndarray) -> tuple[float, ...]:
     return tuple(values)
 
 
+def _chroma_frames(power: np.ndarray, frequencies: np.ndarray) -> np.ndarray:
+    mask = (frequencies >= 65) & (frequencies <= 2500)
+    if not np.any(mask):
+        return np.empty((power.shape[0], 0), dtype=np.float32)
+    selected = frequencies[mask]
+    midi = np.rint(69 + 12 * np.log2(selected / 440.0)).astype(int) % 12
+    amplitudes = np.sqrt(power[:, mask])
+    chroma = np.zeros((power.shape[0], 12), dtype=np.float64)
+    for pitch_class in range(12):
+        chroma[:, pitch_class] = amplitudes[:, midi == pitch_class].sum(axis=1)
+    norms = np.linalg.norm(chroma, axis=1, keepdims=True)
+    return (chroma / np.maximum(norms, 1e-12)).astype(np.float32)
+
+
+def _detect_chords(
+    chroma: np.ndarray,
+    bpm: float | None,
+    duration: float,
+) -> tuple[ChordEvent, ...]:
+    if chroma.size == 0 or chroma.shape[0] < 4:
+        return ()
+    hop_seconds = HOP_SIZE / SAMPLE_RATE
+    segment_seconds = 1.5 if bpm is None else max(0.75, min(2.0, 120.0 / bpm))
+    frames_per_segment = max(4, round(segment_seconds / hop_seconds))
+    templates: list[tuple[str, tuple[int, ...], tuple[float, ...]]] = [
+        ("", (0, 4, 7), (1.0, 0.82, 0.92)),
+        ("m", (0, 3, 7), (1.0, 0.86, 0.92)),
+    ]
+    events: list[ChordEvent] = []
+    for start_frame in range(0, chroma.shape[0], frames_per_segment):
+        end_frame = min(chroma.shape[0], start_frame + frames_per_segment)
+        block = chroma[start_frame:end_frame]
+        if block.shape[0] < max(3, frames_per_segment // 3):
+            break
+        profile = block.mean(axis=0)
+        energy = float(np.linalg.norm(profile))
+        if energy < 1e-5:
+            label = "N"
+            confidence = 0.0
+        else:
+            candidates: list[tuple[float, str]] = []
+            for root in range(12):
+                for suffix, intervals, weights in templates:
+                    template = np.zeros(12, dtype=np.float64)
+                    for interval, weight in zip(intervals, weights):
+                        template[(root + interval) % 12] = weight
+                    score = float(np.dot(profile, template) / (energy * np.linalg.norm(template)))
+                    candidates.append((score, NOTE_NAMES[root] + suffix))
+            candidates.sort(reverse=True)
+            best_score, label = candidates[0]
+            second_score = candidates[1][0]
+            confidence = max(0.0, min(1.0, (best_score - second_score) / max(best_score, 1e-9)))
+            if best_score < 0.42:
+                label = "N"
+        start = min(duration, start_frame * hop_seconds)
+        end = min(duration, end_frame * hop_seconds)
+        if end <= start:
+            continue
+        if events and events[-1].label == label:
+            previous = events[-1]
+            events[-1] = ChordEvent(
+                start=previous.start,
+                end=end,
+                label=label,
+                confidence=(previous.confidence + confidence) / 2.0,
+            )
+        else:
+            events.append(ChordEvent(start=start, end=end, label=label, confidence=confidence))
+    return tuple(events)
+
+
 def _measure_loudness(path: Path) -> float | None:
     command = [
         "ffmpeg",
         "-hide_banner",
+        "-nostdin",
         "-nostats",
         "-i",
         str(path),
+        "-t",
+        str(ANALYSIS_DURATION_SECONDS),
         "-filter_complex",
         "ebur128=framelog=verbose",
         "-f",
@@ -224,6 +341,8 @@ def analyze_audio(path: str | Path) -> AudioAnalysis:
     frequencies = np.fft.rfftfreq(FFT_SIZE, 1.0 / SAMPLE_RATE)
     bpm, tempo_confidence = _detect_tempo(magnitude)
     key_name, scale, key_confidence = _detect_key(power, frequencies)
+    chroma = _chroma_frames(power, frequencies)
+    chords = _detect_chords(chroma, bpm, samples.size / SAMPLE_RATE)
     peak_dbfs = _db(float(np.max(np.abs(samples))))
     return AudioAnalysis(
         bpm=bpm,
@@ -235,5 +354,6 @@ def analyze_audio(path: str | Path) -> AudioAnalysis:
         peak_dbfs=peak_dbfs,
         dynamic_range_db=_dynamic_range(frames),
         spectrum=_spectrum(power, frequencies),
+        chords=chords,
     )
 
