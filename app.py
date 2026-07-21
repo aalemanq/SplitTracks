@@ -498,7 +498,10 @@ class MainWindow(Gtk.ApplicationWindow):
         if not candidates:
             self.harmony_status.set_text("No hay versiones disponibles.")
             return False
-        self.harmony_status.set_text(f"{len(candidates)} versiones encontradas · elige la que quieras usar")
+        first_candidate = candidates[0]
+        self.harmony_status.set_text(
+            f"{len(candidates)} versiones encontradas · cargando {first_candidate.version}"
+        )
         for candidate in candidates:
             row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
             row.add_css_class("harmony-candidate-row")
@@ -514,6 +517,7 @@ class MainWindow(Gtk.ApplicationWindow):
             row.append(source_button)
             row.append(use_button)
             self.harmony_results.append(row)
+        self._select_harmony_candidate(None, first_candidate)
         return False
 
     def _build_analysis_metric(self, key: str, title: str) -> Gtk.Box:
@@ -920,6 +924,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.harmony_artist_entry.set_text(artist)
         self.harmony_title_entry.set_text(title)
         self.sidebar_status.set_text(f"Audio descargado: {result.title}")
+        if artist and title:
+            self._search_harmony(None)
         self._update_start_state()
         return False
 
