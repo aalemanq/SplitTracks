@@ -46,6 +46,42 @@ class ChordEvent:
         }
 
 
+def chord_degree(label: str, key_name: str | None, scale: str | None) -> str:
+    if label in {"", "N"} or not key_name or not scale:
+        return "—"
+    root_text = label[:2] if len(label) > 1 and label[1] in {"♯", "#"} else label[:1]
+    quality = label[len(root_text):]
+    try:
+        root = NOTE_NAMES.index(root_text.replace("#", "♯"))
+        tonic = NOTE_NAMES.index(key_name.replace("#", "♯"))
+    except ValueError:
+        return "—"
+
+    if scale == "mayor":
+        offsets = (0, 2, 4, 5, 7, 9, 11)
+    else:
+        offsets = (0, 2, 3, 5, 7, 8, 10)
+    numerals = ("I", "II", "III", "IV", "V", "VI", "VII")
+    semitones = (root - tonic) % 12
+    if semitones in offsets:
+        index = offsets.index(semitones)
+        accidental = ""
+    else:
+        nearby = min(range(7), key=lambda position: min(
+            (semitones - offsets[position]) % 12,
+            (offsets[position] - semitones) % 12,
+        ))
+        index = nearby
+        difference = (semitones - offsets[index]) % 12
+        accidental = "♯" if difference == 1 else "♭" if difference == 11 else "?"
+    numeral = numerals[index]
+    if quality == "m":
+        numeral = numeral.lower()
+    elif quality == "dim":
+        numeral = numeral.lower() + "°"
+    return accidental + numeral
+
+
 @dataclass(frozen=True)
 class AudioAnalysis:
     bpm: float | None
@@ -79,15 +115,22 @@ class AudioAnalysis:
         return "  ·  ".join(parts) or "Análisis musical no disponible"
 
     @property
-    def chord_summary(self) -> str:
-        items: list[str] = []
+    def compact_chords(self) -> tuple[ChordEvent, ...]:
+        compact: list[ChordEvent] = []
         previous_label: str | None = None
         for event in self.chords:
             if event.label == "N" or event.label == previous_label:
                 continue
+            compact.append(event)
+            previous_label = event.label
+        return tuple(compact)
+
+    @property
+    def chord_summary(self) -> str:
+        items = []
+        for event in self.compact_chords:
             minutes, seconds = divmod(max(0, int(event.start)), 60)
             items.append(f"{minutes}:{seconds:02d} {event.label}")
-            previous_label = event.label
         if not items:
             return "Progresión de acordes no disponible"
         if len(items) > 24:
@@ -99,6 +142,13 @@ class AudioAnalysis:
             else 0.0
         )
         return f"Progresión: {'  ·  '.join(items)}  ·  confianza {confidence:.0%}"
+
+    @property
+    def degree_sequence(self) -> tuple[str, ...]:
+        return tuple(
+            chord_degree(event.label, self.key_name, self.scale)
+            for event in self.compact_chords
+        )
 
     def as_dict(self) -> dict[str, object]:
         return {
@@ -225,13 +275,15 @@ def _detect_key(power: np.ndarray, frequencies: np.ndarray) -> tuple[str | None,
 
 def _spectrum(power: np.ndarray, frequencies: np.ndarray) -> tuple[float, ...]:
     edges = np.geomspace(40, min(8000, SAMPLE_RATE / 2), 48)
-    values: list[float] = []
-    peak = max(float(power.mean()), 1e-12)
+    raw_values: list[float] = []
     for low, high in zip(edges[:-1], edges[1:]):
         band = power[:, (frequencies >= low) & (frequencies < high)]
-        value = float(band.mean()) if band.size else 0.0
-        values.append(max(-60.0, min(0.0, 10.0 * math.log10(max(value, 1e-12) / peak))))
-    return tuple(values)
+        raw_values.append(float(band.mean()) if band.size else 0.0)
+    peak = max(max(raw_values, default=0.0), 1e-12)
+    return tuple(
+        max(-60.0, min(0.0, 10.0 * math.log10(max(value, 1e-12) / peak)))
+        for value in raw_values
+    )
 
 
 def _chroma_frames(power: np.ndarray, frequencies: np.ndarray) -> np.ndarray:

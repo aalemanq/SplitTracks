@@ -611,11 +611,51 @@ checkbutton.category-check:disabled {
   letter-spacing: 0.1px;
 }
 
-.file-chords {
-  margin-top: 2px;
-  color: @yellow;
-  font-size: 10px;
+.chord-panels {
+  margin-top: 5px;
+}
+
+.chord-panel {
+  min-width: 0;
+  min-height: 58px;
+  padding: 7px;
+  border: 1px solid @line;
+  border-radius: 10px;
+  background: @surface;
+}
+
+.chord-panel-title {
+  color: @muted;
+  font-size: 9px;
   font-weight: 700;
+  letter-spacing: 0.3px;
+}
+
+.chord-flow {
+  min-height: 25px;
+}
+
+.chord-chip {
+  min-width: 27px;
+  padding: 4px 6px;
+  border-radius: 7px;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.chord-panel-chords .chord-chip {
+  color: @yellow;
+  background: @yellow-soft;
+}
+
+.chord-panel-degrees .chord-chip {
+  color: @cyan;
+  background: @cyan-soft;
+}
+
+.chord-placeholder {
+  color: @muted;
+  font-size: 10px;
 }
 
 .spectrum-view {

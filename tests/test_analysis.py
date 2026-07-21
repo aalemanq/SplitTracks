@@ -36,6 +36,7 @@ class AudioAnalysisTest(unittest.TestCase):
             self.assertLess(result.peak_dbfs, 0)
             self.assertGreater(result.dynamic_range_db, 0)
             self.assertEqual(len(result.spectrum), 47)
+            self.assertGreater(max(result.spectrum) - min(result.spectrum), 10.0)
             self.assertTrue(result.summary)
 
     def test_chord_progression_returns_timed_events(self) -> None:
@@ -65,6 +66,7 @@ class AudioAnalysisTest(unittest.TestCase):
             self.assertIn("C", result.chord_summary)
             self.assertIn("G", result.chord_summary)
             self.assertIn("Am", result.chord_summary)
+            self.assertEqual(result.degree_sequence[:4], ("I", "V", "vi", "IV"))
             self.assertTrue(all(event.end > event.start for event in result.chords))
 
 

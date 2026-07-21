@@ -342,6 +342,59 @@ class MainWindow(Gtk.ApplicationWindow):
         card.add_css_class("card")
         return card
 
+    def _build_chord_panel(self, title: str, css: str) -> tuple[Gtk.Box, Gtk.FlowBox]:
+        panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
+        panel.add_css_class("chord-panel")
+        panel.add_css_class(css)
+        panel.append(label(title, "chord-panel-title"))
+        flow = Gtk.FlowBox()
+        flow.add_css_class("chord-flow")
+        flow.set_selection_mode(Gtk.SelectionMode.NONE)
+        flow.set_row_spacing(4)
+        flow.set_column_spacing(4)
+        flow.set_hexpand(True)
+        panel.append(flow)
+        return panel, flow
+
+    def _set_chord_panels(self, analysis: AudioAnalysis | None) -> None:
+        for flow in (self.chord_flow, self.degree_flow):
+            while child := flow.get_first_child():
+                flow.remove(child)
+
+        events = analysis.compact_chords if analysis else ()
+        degrees = analysis.degree_sequence if analysis else ()
+        if not events:
+            for flow, text in (
+                (self.chord_flow, "Analizando…"),
+                (self.degree_flow, "—"),
+            ):
+                placeholder = label(text, "chord-placeholder")
+                placeholder.set_xalign(0.5)
+                flow.append(placeholder)
+            return
+
+        for index, event in enumerate(events[:24]):
+            chord_chip = label(event.label, "chord-chip")
+            chord_chip.set_xalign(0.5)
+            chord_chip.set_tooltip_text(
+                f"{fmt_time(event.start)}–{fmt_time(event.end)} · confianza {event.confidence:.0%}"
+            )
+            self.chord_flow.append(chord_chip)
+
+            degree = degrees[index] if index < len(degrees) else "—"
+            degree_chip = label(degree, "chord-chip")
+            degree_chip.set_xalign(0.5)
+            degree_chip.set_tooltip_text(
+                f"{event.label} · {fmt_time(event.start)}–{fmt_time(event.end)}"
+            )
+            self.degree_flow.append(degree_chip)
+
+        if len(events) > 24:
+            for flow in (self.chord_flow, self.degree_flow):
+                ellipsis = label("…", "chord-chip")
+                ellipsis.set_xalign(0.5)
+                flow.append(ellipsis)
+
     def _build_sidebar(self) -> Gtk.Widget:
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         sidebar.add_css_class("sidebar")
@@ -411,14 +464,22 @@ class MainWindow(Gtk.ApplicationWindow):
         file_header.append(self.file_name)
         self.file_meta = label("", "file-meta")
         self.analysis_meta = label("", "file-analysis", wrap=True)
-        self.chord_meta = label("", "file-chords", wrap=True)
+        self.chord_panels = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.chord_panels.set_hexpand(True)
+        self.chord_panel, self.chord_flow = self._build_chord_panel("Acordes detectados", "chord-panel-chords")
+        self.degree_panel, self.degree_flow = self._build_chord_panel("Grados de escala", "chord-panel-degrees")
+        self.chord_panel.set_hexpand(True)
+        self.degree_panel.set_hexpand(True)
+        self.chord_panels.append(self.chord_panel)
+        self.chord_panels.append(self.degree_panel)
         self.spectrum_view = SpectrumView()
         self.spectrum_view.set_visible(False)
         self.file_card.append(file_header)
         self.file_card.append(self.file_meta)
         self.file_card.append(self.analysis_meta)
-        self.file_card.append(self.chord_meta)
+        self.file_card.append(self.chord_panels)
         self.file_card.append(self.spectrum_view)
+        self._set_chord_panels(None)
         body.append(source_card)
         body.append(self.file_card)
 
@@ -768,7 +829,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.file_name.set_text(self.input_path.name)
         self.file_meta.set_text("Analizando archivo…")
         self.analysis_meta.set_text("Calculando BPM, tonalidad, dinámica y espectro…")
-        self.chord_meta.set_text("Detectando progresión de acordes…")
+        self._set_chord_panels(None)
         self.spectrum_view.set_spectrum(())
         self.spectrum_view.set_visible(False)
         self._set_status("Analizando audio", "Comprobando duración, formato, canales y metadatos musicales", "ANALIZANDO", pending=True)
@@ -791,7 +852,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.audio_analysis = analysis
         self.file_meta.set_text(f"{info.format_name}  ·  {info.duration_label}  ·  {info.sample_rate_label}  ·  {info.channels} ch")
         self.analysis_meta.set_text(analysis.summary if analysis else "Análisis musical no disponible")
-        self.chord_meta.set_text(analysis.chord_summary if analysis else "Progresión de acordes no disponible")
+        self._set_chord_panels(analysis)
         self.spectrum_view.set_spectrum(analysis.spectrum if analysis else ())
         self.spectrum_view.set_visible(bool(analysis and analysis.spectrum))
         if info.channels == 2:
