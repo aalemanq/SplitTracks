@@ -82,6 +82,24 @@ def chord_degree(label: str, key_name: str | None, scale: str | None) -> str:
     return accidental + numeral
 
 
+def transpose_note_name(name: str | None, semitones: int) -> str | None:
+    if not name:
+        return name
+    try:
+        index = NOTE_NAMES.index(name.replace("#", "♯"))
+    except ValueError:
+        return name
+    return NOTE_NAMES[(index + semitones) % 12]
+
+
+def transpose_chord_label(label: str, semitones: int) -> str:
+    if not label or label == "N" or semitones == 0:
+        return label
+    root_text = label[:2] if len(label) > 1 and label[1] in {"♯", "#"} else label[:1]
+    root = transpose_note_name(root_text, semitones)
+    return f"{root}{label[len(root_text):]}" if root else label
+
+
 @dataclass(frozen=True)
 class AudioAnalysis:
     bpm: float | None
@@ -145,8 +163,23 @@ class AudioAnalysis:
 
     @property
     def degree_sequence(self) -> tuple[str, ...]:
+        return self.degree_sequence_for(0)
+
+    def transposed_compact_chords(self, semitones: int) -> tuple[ChordEvent, ...]:
         return tuple(
-            chord_degree(event.label, self.key_name, self.scale)
+            ChordEvent(
+                start=event.start,
+                end=event.end,
+                label=transpose_chord_label(event.label, semitones),
+                confidence=event.confidence,
+            )
+            for event in self.compact_chords
+        )
+
+    def degree_sequence_for(self, semitones: int) -> tuple[str, ...]:
+        shifted_key = transpose_note_name(self.key_name, semitones)
+        return tuple(
+            chord_degree(transpose_chord_label(event.label, semitones), shifted_key, self.scale)
             for event in self.compact_chords
         )
 

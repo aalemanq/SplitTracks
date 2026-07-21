@@ -67,6 +67,8 @@ class AudioAnalysisTest(unittest.TestCase):
             self.assertIn("G", result.chord_summary)
             self.assertIn("Am", result.chord_summary)
             self.assertEqual(result.degree_sequence[:4], ("I", "V", "vi", "IV"))
+            self.assertEqual(tuple(event.label for event in result.transposed_compact_chords(2)[:4]), ("D", "A", "Bm", "G"))
+            self.assertEqual(result.degree_sequence_for(2)[:4], ("I", "V", "vi", "IV"))
             self.assertTrue(all(event.end > event.start for event in result.chords))
 
 

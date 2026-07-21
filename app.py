@@ -6,6 +6,7 @@ from __future__ import annotations
 import shutil
 import sys
 import threading
+import time
 from pathlib import Path
 
 import gi
@@ -117,65 +118,6 @@ def spacer(height: int = 8) -> Gtk.Box:
     return box
 
 
-class Waveform(Gtk.DrawingArea):
-    def __init__(self):
-        super().__init__()
-        self.progress = 0.0
-        self.set_content_height(88)
-        self.set_draw_func(self._draw)
-
-    def set_progress(self, value: float) -> None:
-        self.progress = max(0.0, min(1.0, value))
-        self.queue_draw()
-
-    def _draw(self, _area, context, width, height) -> None:
-        import math
-
-        context.set_line_width(2.0)
-        bars = max(1, int(width / 7))
-        for index in range(bars):
-            x = (index + 0.5) * width / bars
-            wave = abs(math.sin(index * 0.83) * 0.46 + math.sin(index * 0.19) * 0.27)
-            bar_height = max(7, (height - 18) * (0.20 + wave * 0.8))
-            active = (index / bars) <= self.progress
-            if active:
-                context.set_source_rgba(0.43, 0.88, 0.69, 0.95)
-            else:
-                context.set_source_rgba(0.34, 0.39, 0.49, 0.62)
-            context.move_to(x, (height - bar_height) / 2)
-            context.line_to(x, (height + bar_height) / 2)
-            context.stroke()
-
-
-class SpectrumView(Gtk.DrawingArea):
-    def __init__(self):
-        super().__init__()
-        self.values: tuple[float, ...] = ()
-        self.set_content_height(44)
-        self.set_hexpand(True)
-        self.add_css_class("spectrum-view")
-        self.set_draw_func(self._draw)
-
-    def set_spectrum(self, values: tuple[float, ...] | list[float] | None) -> None:
-        self.values = tuple(values or ())
-        self.queue_draw()
-
-    def _draw(self, _area, context, width, height) -> None:
-        if not self.values or width <= 0 or height <= 0:
-            return
-        count = len(self.values)
-        gap = 2.0
-        bar_width = max(1.0, (width - gap * (count - 1)) / count)
-        for index, value in enumerate(self.values):
-            level = max(0.06, min(1.0, (float(value) + 60.0) / 60.0))
-            bar_height = max(3.0, (height - 8.0) * level)
-            x = index * (bar_width + gap)
-            y = (height - bar_height) / 2.0
-            context.set_source_rgba(0.16, 0.72, 0.66, 0.82 if level > 0.12 else 0.42)
-            context.rectangle(x, y, bar_width, bar_height)
-            context.fill()
-
-
 class TrackRow(Gtk.Box):
     def __init__(self, index: int, stem: dict, changed):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -277,6 +219,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self._saved_pitch_shift = 0
         self._pitch_resume_playing = False
         self._pitch_resume_position = 0.0
+        self.analysis_pitch_shift = 0
+        self.processing_started_at: float | None = None
+        self.processing_timer_id: int | None = None
 
         self._load_css()
         self._build_header()
@@ -325,10 +270,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.youtube_entry.set_hexpand(True)
         self.youtube_entry.connect("activate", self._download_youtube)
         source.append(self.youtube_entry)
-        self.youtube_button = icon_button("Descargar", "go-down-symbolic", "header-action")
+        self.youtube_button = icon_button("Añadir", "list-add-symbolic", "header-action")
         self.youtube_button.connect("clicked", self._download_youtube)
         source.append(self.youtube_button)
-        open_audio = icon_button("Abrir audio", "document-open-symbolic", "header-action")
+        open_audio = icon_button("Subir audio", "go-up-symbolic", "header-action")
         open_audio.connect("clicked", self._choose_audio)
         source.append(open_audio)
         header.pack_start(source)
@@ -341,7 +286,10 @@ class MainWindow(Gtk.ApplicationWindow):
             toggle = Gtk.ToggleButton()
             toggle.add_css_class("header-stem-toggle")
             toggle.add_css_class(f"header-stem-{key}")
-            toggle.set_child(centered_image(ui_asset(CATEGORY_ASSETS[key], 17)))
+            toggle_contents = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+            toggle_contents.append(ui_asset(CATEGORY_ASSETS[key], 16))
+            toggle_contents.append(label(display_name, "header-stem-label"))
+            toggle.set_child(toggle_contents)
             toggle.set_tooltip_text(f"Conservar {display_name}")
             toggle.connect("toggled", lambda button, selected_key=key: self._header_extract_toggled(selected_key, button))
             self.header_extract_buttons[key] = toggle
@@ -349,7 +297,10 @@ class MainWindow(Gtk.ApplicationWindow):
         other_toggle = Gtk.Button()
         other_toggle.add_css_class("header-stem-toggle")
         other_toggle.add_css_class("header-stem-other")
-        other_toggle.set_child(centered_image(ui_asset("other.svg", 17)))
+        other_contents = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=5)
+        other_contents.append(ui_asset("other.svg", 16))
+        other_contents.append(label("Other", "header-stem-label"))
+        other_toggle.set_child(other_contents)
         other_toggle.set_sensitive(False)
         other_toggle.set_tooltip_text("Other se calcula automáticamente")
         extract.append(other_toggle)
@@ -402,8 +353,8 @@ class MainWindow(Gtk.ApplicationWindow):
             while child := flow.get_first_child():
                 flow.remove(child)
 
-        events = analysis.compact_chords if analysis else ()
-        degrees = analysis.degree_sequence if analysis else ()
+        events = analysis.transposed_compact_chords(self.analysis_pitch_shift) if analysis else ()
+        degrees = analysis.degree_sequence_for(self.analysis_pitch_shift) if analysis else ()
         if not events:
             for flow, text in (
                 (self.chord_flow, "Analizando…"),
@@ -436,6 +387,45 @@ class MainWindow(Gtk.ApplicationWindow):
                 ellipsis.set_xalign(0.5)
                 flow.append(ellipsis)
 
+
+
+    def _analysis_pitch_text(self) -> str:
+        if self.analysis_pitch_shift == 0:
+            return "Original · 0 semitonos"
+        sign = "+" if self.analysis_pitch_shift > 0 else "−"
+        amount = abs(self.analysis_pitch_shift)
+        unit = "semitono" if amount == 1 else "semitonos"
+        return f"{sign}{amount} {unit}"
+
+    def _set_analysis_pitch_display(self) -> None:
+        if hasattr(self, "analysis_pitch_value"):
+            self.analysis_pitch_value.set_text(self._analysis_pitch_text())
+        if self.audio_analysis:
+            self._set_chord_panels(self.audio_analysis)
+
+    def _set_analysis_pitch_controls(self, enabled: bool) -> None:
+        if not hasattr(self, "analysis_pitch_down"):
+            return
+        available = bool(enabled and self.audio_analysis and not self._busy)
+        self.analysis_pitch_down.set_sensitive(available and self.analysis_pitch_shift > -12)
+        self.analysis_pitch_up.set_sensitive(available and self.analysis_pitch_shift < 12)
+        self.analysis_pitch_reset.set_sensitive(available and self.analysis_pitch_shift != 0)
+
+    def _adjust_analysis_pitch(self, delta: int) -> None:
+        if not self.audio_analysis:
+            return
+        self.analysis_pitch_shift = max(-12, min(12, self.analysis_pitch_shift + delta))
+        self._set_analysis_pitch_display()
+        self._set_analysis_pitch_controls(True)
+
+    def _reset_analysis_pitch(self) -> None:
+        if not self.audio_analysis:
+            return
+        self.analysis_pitch_shift = 0
+        self._set_analysis_pitch_display()
+        self._set_analysis_pitch_controls(True)
+
+
     def _build_sidebar(self) -> Gtk.Widget:
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         sidebar.add_css_class("sidebar")
@@ -453,138 +443,12 @@ class MainWindow(Gtk.ApplicationWindow):
         body.set_margin_end(20)
         scroll.set_child(body)
 
-        source_card = self._card()
-        source_card.add_css_class("source-card")
-        source_heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        source_heading.append(ui_icon("audio-x-generic-symbolic", 17))
-        source_heading.append(label("Audio local", "card-title"))
-        source_card.append(source_heading)
-        source_card.append(label("WAV · FLAC · OGG · MP3 · M4A", "card-caption"))
-        drop = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        drop.add_css_class("drop-zone")
-        drop.set_halign(Gtk.Align.FILL)
-        drop.append(ui_icon("folder-open-symbolic", 27, "drop-icon"))
-        drop_title = label("Suelta una canción aquí", "card-title")
-        drop_title.set_halign(Gtk.Align.CENTER)
-        drop_title.set_xalign(0.5)
-        drop.append(drop_title)
-        browse = icon_button("Seleccionar audio", "document-open-symbolic")
-        browse.set_halign(Gtk.Align.CENTER)
-        browse.connect("clicked", self._choose_audio)
-        drop.append(browse)
-        self.drop_zone = drop
-        target = Gtk.DropTarget.new(Gio.File, Gdk.DragAction.COPY)
-        target.connect("drop", self._drop_audio)
-        drop.add_controller(target)
-        source_card.append(drop)
-
-        self.file_card = self._card()
-        self.file_card.set_visible(False)
-        file_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        file_header.set_hexpand(True)
-        self.file_name = label("", "file-name")
-        self.file_name.set_hexpand(True)
-        file_header.append(self.file_name)
-        self.file_meta = label("", "file-meta")
-        self.analysis_meta = label("", "file-analysis", wrap=True)
-        self.chord_panels = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.chord_panels.set_hexpand(True)
-        self.chord_panel, self.chord_flow = self._build_chord_panel("Acordes detectados", "chord-panel-chords")
-        self.degree_panel, self.degree_flow = self._build_chord_panel("Grados de escala", "chord-panel-degrees")
-        self.chord_panel.set_hexpand(True)
-        self.degree_panel.set_hexpand(True)
-        self.chord_panels.append(self.chord_panel)
-        self.chord_panels.append(self.degree_panel)
-        self.spectrum_view = SpectrumView()
-        self.spectrum_view.set_visible(False)
-        self.file_card.append(file_header)
-        self.file_card.append(self.file_meta)
-        self.file_card.append(self.analysis_meta)
-        self.file_card.append(self.chord_panels)
-        self.file_card.append(self.spectrum_view)
-        self._set_chord_panels(None)
-        body.append(source_card)
-        body.append(self.file_card)
-
-        extract_card = self._card()
-        extract_card.add_css_class("extract-card")
-        extract_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        extract_header.append(label("02  ·  QUÉ EXTRAER", "eyebrow"))
-        all_button = icon_button("Todas", "emblem-ok-symbolic", "compact-action")
-        all_button.set_hexpand(True)
-        all_button.set_halign(Gtk.Align.END)
-        all_button.connect("clicked", lambda *_: self._set_available(True))
-        none_button = icon_button("Ninguna", "edit-clear-symbolic", "compact-action")
-        none_button.connect("clicked", lambda *_: self._set_available(False))
-        extract_header.append(all_button)
-        extract_header.append(none_button)
-        extract_card.append(extract_header)
-        extract_card.append(label("Elige los stems que quieres conservar; Other se calcula como complemento.", "card-caption", wrap=True))
-        category_grid = Gtk.Grid()
-        category_grid.set_column_spacing(8)
-        category_grid.set_row_spacing(8)
-        category_grid.set_column_homogeneous(True)
-        for index, key in enumerate(("vocals", "drums", "bass", "guitar", "piano")):
-            display_name, kind, _color = STEM_LABELS[key]
-            category = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
-            category.add_css_class("category-card")
-            category.add_css_class(f"category-{key}")
-            category.set_hexpand(True)
-            icon_badge = Gtk.Box()
-            icon_badge.add_css_class("category-icon-badge")
-            icon_badge.set_size_request(38, 38)
-            icon_badge.set_hexpand(False)
-            icon_badge.set_vexpand(False)
-            icon_badge.set_valign(Gtk.Align.CENTER)
-            icon_badge.append(centered_image(ui_asset(CATEGORY_ASSETS[key], 21)))
-            category.append(icon_badge)
-            copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-            copy.set_hexpand(True)
-            copy.set_valign(Gtk.Align.CENTER)
-            copy.append(label(display_name, "category-name"))
-            copy.append(label(kind, "category-note", wrap=True))
-            category.append(copy)
-            check = Gtk.CheckButton()
-            check.add_css_class("category-check")
-            check.add_css_class(f"category-check-{key}")
-            check.set_active(True)
-            check.set_halign(Gtk.Align.END)
-            check.set_valign(Gtk.Align.CENTER)
-            check.connect("toggled", self._selection_changed)
-            self.track_checks[key] = check
-            category.append(check)
-            category_grid.attach(category, index % 2, index // 2, 1, 1)
-        other_info = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        other_info.add_css_class("other-info")
-        other_icon = Gtk.Box()
-        other_icon.add_css_class("other-info-icon")
-        other_icon.set_size_request(32, 32)
-        other_icon.set_hexpand(False)
-        other_icon.set_vexpand(False)
-        other_icon.set_valign(Gtk.Align.CENTER)
-        other_icon.append(centered_image(ui_asset("other.svg", 19)))
-        other_info.append(other_icon)
-        other_copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
-        other_copy.set_hexpand(True)
-        other_copy.set_valign(Gtk.Align.CENTER)
-        other_copy.append(label("Other reúne lo no seleccionado.", "other-info-title"))
-        other_copy.append(label("Se calcula automáticamente como complemento para no duplicar pistas.", "other-info-copy", wrap=True))
-        other_info.append(other_copy)
-        other_row = Gtk.CheckButton()
-        other_row.set_active(True)
-        other_row.set_sensitive(False)
-        other_row.set_visible(False)
-        other_row.set_tooltip_text("Se genera siempre sumando el Other del modelo y las pistas no seleccionadas")
-        self.track_checks["other"] = other_row
-        self._sync_header_extract_buttons()
-        other_info.append(other_row)
-        category_grid.attach(other_info, 0, 3, 2, 1)
-        extract_card.append(category_grid)
-        body.append(extract_card)
-
-        body.append(label("03  ·  CARPETA DE TRABAJO", "eyebrow"))
         output_card = self._card()
-        output_card.append(label("Carpeta de trabajo", "card-title"))
+        output_card.add_css_class("output-card")
+        output_heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        output_heading.append(ui_icon("folder-open-symbolic", 17))
+        output_heading.append(label("Carpeta de trabajo", "card-title"))
+        output_card.append(output_heading)
         output_card.append(label("Las pistas y mezclas se guardan como MP3 320 kbps; el WAV solo es temporal interno.", "card-caption", wrap=True))
         folder_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.folder_label = label("Ninguna carpeta elegida", "folder-path")
@@ -596,6 +460,72 @@ class MainWindow(Gtk.ApplicationWindow):
         folder_row.append(folder_button)
         output_card.append(folder_row)
         body.append(output_card)
+
+        self.file_card = self._card()
+        self.file_card.add_css_class("analysis-file-card")
+        self.file_card.set_visible(False)
+        file_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        file_header.set_hexpand(True)
+        self.file_name = label("", "file-name")
+        self.file_name.set_hexpand(True)
+        file_header.append(self.file_name)
+        self.file_meta = label("", "file-meta")
+        self.analysis_meta = label("", "file-analysis", wrap=True)
+
+        self.analysis_tone_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        self.analysis_tone_bar.add_css_class("tone-card")
+        analysis_title = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        analysis_title.set_hexpand(True)
+        analysis_title.append(label("Transponer análisis", "section-heading"))
+        analysis_title.append(label("Cambia los nombres de acordes y conserva sus grados", "section-note"))
+        self.analysis_tone_bar.append(analysis_title)
+        self.analysis_pitch_down = Gtk.Button(label="−")
+        self.analysis_pitch_down.add_css_class("tone-button")
+        self.analysis_pitch_down.set_tooltip_text("Bajar un semitono")
+        self.analysis_pitch_down.connect("clicked", lambda *_: self._adjust_analysis_pitch(-1))
+        self.analysis_tone_bar.append(self.analysis_pitch_down)
+        self.analysis_pitch_value = label("Original · 0 semitonos", "tone-value")
+        self.analysis_pitch_value.set_xalign(0.5)
+        self.analysis_tone_bar.append(self.analysis_pitch_value)
+        self.analysis_pitch_up = Gtk.Button(label="+")
+        self.analysis_pitch_up.add_css_class("tone-button")
+        self.analysis_pitch_up.set_tooltip_text("Subir un semitono")
+        self.analysis_pitch_up.connect("clicked", lambda *_: self._adjust_analysis_pitch(1))
+        self.analysis_tone_bar.append(self.analysis_pitch_up)
+        self.analysis_pitch_reset = Gtk.Button(label="Original")
+        self.analysis_pitch_reset.add_css_class("secondary-action")
+        self.analysis_pitch_reset.connect("clicked", lambda *_: self._reset_analysis_pitch())
+        self.analysis_tone_bar.append(self.analysis_pitch_reset)
+
+        self.chord_panels = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
+        self.chord_panels.set_hexpand(True)
+        self.chord_panel, self.chord_flow = self._build_chord_panel("Acordes detectados", "chord-panel-chords")
+        self.degree_panel, self.degree_flow = self._build_chord_panel("Grados de escala", "chord-panel-degrees")
+        self.chord_panel.set_hexpand(True)
+        self.degree_panel.set_hexpand(True)
+        self.chord_panels.append(self.chord_panel)
+        self.chord_panels.append(self.degree_panel)
+        self.file_card.append(file_header)
+        self.file_card.append(self.file_meta)
+        self.file_card.append(self.analysis_meta)
+        self.file_card.append(self.analysis_tone_bar)
+        self.file_card.append(self.chord_panels)
+        self._set_analysis_pitch_controls(False)
+        self._set_chord_panels(None)
+        body.append(self.file_card)
+
+        for key in ("vocals", "drums", "bass", "guitar", "piano"):
+            check = Gtk.CheckButton()
+            check.set_active(True)
+            check.set_visible(False)
+            check.connect("toggled", self._selection_changed)
+            self.track_checks[key] = check
+        other_check = Gtk.CheckButton()
+        other_check.set_active(True)
+        other_check.set_sensitive(False)
+        other_check.set_visible(False)
+        self.track_checks["other"] = other_check
+        self._sync_header_extract_buttons()
 
         self.separate_button = icon_button("Separar y preparar pistas", "media-playback-start-symbolic", "primary-action")
         self.separate_button.set_sensitive(False)
@@ -657,6 +587,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.status_detail = label("La sesión aparecerá aquí cuando cargues una mezcla.", "status-detail")
         status_stack.append(self.status_title)
         status_stack.append(self.status_detail)
+        self.processing_elapsed = label("Tiempo transcurrido · 0,0 s", "processing-elapsed")
+        self.processing_elapsed.set_visible(False)
+        status_stack.append(self.processing_elapsed)
         self.status_card.append(status_stack)
         self.status_pill = label("ESPERANDO AUDIO", "status-pill pending")
         self.status_card.append(self.status_pill)
@@ -667,46 +600,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self.progress.set_show_text(False)
         content.append(self.progress)
 
-        tone_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        tone_card.add_css_class("tone-card")
-        tone_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        tone_header.append(ui_icon("media-playback-start-symbolic", 16))
-        tone_header.append(label("Preescucha de tonalidad", "section-heading"))
-        tone_header.append(label("Cambia mientras suena; guarda al final", "section-note"))
-        tone_card.append(tone_header)
-        tone_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.pitch_down = Gtk.Button(label="−")
-        self.pitch_down.add_css_class("tone-button")
-        self.pitch_down.set_tooltip_text("Bajar un semitono · bemol")
-        self.pitch_down.connect("clicked", lambda *_: self._adjust_pitch(-1))
-        tone_controls.append(self.pitch_down)
-        self.pitch_value = label("Original · 0 semitonos", "tone-value")
-        self.pitch_value.set_hexpand(True)
-        self.pitch_value.set_xalign(0.5)
-        tone_controls.append(self.pitch_value)
-        self.pitch_up = Gtk.Button(label="+")
-        self.pitch_up.add_css_class("tone-button")
-        self.pitch_up.set_tooltip_text("Subir un semitono · sostenido")
-        self.pitch_up.connect("clicked", lambda *_: self._adjust_pitch(1))
-        tone_controls.append(self.pitch_up)
-        self.pitch_reset = Gtk.Button(label="Original")
-        self.pitch_reset.add_css_class("secondary-action")
-        self.pitch_reset.set_tooltip_text("Volver a la tonalidad original de la sesión")
-        self.pitch_reset.connect("clicked", lambda *_: self._reset_pitch())
-        tone_controls.append(self.pitch_reset)
-        self.pitch_save = Gtk.Button(label="Guardar tonalidad")
-        self.pitch_save.add_css_class("primary-action")
-        self.pitch_save.set_tooltip_text("Crear los MP3 en la tonalidad seleccionada")
-        self.pitch_save.connect("clicked", self._save_pitch)
-        tone_controls.append(self.pitch_save)
-        tone_card.append(tone_controls)
-        content.append(tone_card)
-        self._set_pitch_controls(False)
-
-        wave_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
-        wave_card.add_css_class("wave-card")
-        self.waveform = Waveform()
-        wave_card.append(self.waveform)
+        player_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=10)
+        player_card.add_css_class("player-card")
         timeline_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.current_time = label("0:00", "time-label")
         timeline_row.append(self.current_time)
@@ -718,7 +613,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.total_time = label("0:00", "time-label")
         self.total_time.set_xalign(1)
         timeline_row.append(self.total_time)
-        wave_card.append(timeline_row)
+        player_card.append(timeline_row)
 
         transport = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         transport.add_css_class("transport")
@@ -735,8 +630,38 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_button.connect("clicked", lambda *_: self._toggle_play())
         self._set_play_icon(False)
         transport.append(self.play_button)
-        wave_card.append(transport)
-        content.append(wave_card)
+
+        pitch_separator = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
+        pitch_separator.add_css_class("player-separator")
+        transport.append(pitch_separator)
+        pitch_hint = label("Tonalidad", "section-note")
+        transport.append(pitch_hint)
+        self.pitch_down = Gtk.Button(label="−")
+        self.pitch_down.add_css_class("tone-button")
+        self.pitch_down.set_tooltip_text("Bajar un semitono · bemol")
+        self.pitch_down.connect("clicked", lambda *_: self._adjust_pitch(-1))
+        transport.append(self.pitch_down)
+        self.pitch_value = label("Original · 0 semitonos", "tone-value")
+        self.pitch_value.set_xalign(0.5)
+        transport.append(self.pitch_value)
+        self.pitch_up = Gtk.Button(label="+")
+        self.pitch_up.add_css_class("tone-button")
+        self.pitch_up.set_tooltip_text("Subir un semitono · sostenido")
+        self.pitch_up.connect("clicked", lambda *_: self._adjust_pitch(1))
+        transport.append(self.pitch_up)
+        self.pitch_reset = Gtk.Button(label="Original")
+        self.pitch_reset.add_css_class("secondary-action")
+        self.pitch_reset.set_tooltip_text("Volver a la tonalidad original de la sesión")
+        self.pitch_reset.connect("clicked", lambda *_: self._reset_pitch())
+        transport.append(self.pitch_reset)
+        self.pitch_save = Gtk.Button(label="Guardar tonalidad")
+        self.pitch_save.add_css_class("primary-action")
+        self.pitch_save.set_tooltip_text("Crear los MP3 en la tonalidad seleccionada")
+        self.pitch_save.connect("clicked", self._save_pitch)
+        transport.append(self.pitch_save)
+        player_card.append(transport)
+        content.append(player_card)
+        self._set_pitch_controls(False)
 
         mix_heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         mix_heading.append(label("Pistas separadas", "section-heading"))
@@ -852,17 +777,21 @@ class MainWindow(Gtk.ApplicationWindow):
             self._cleanup_youtube_temp()
         self.input_path = Path(path).expanduser().resolve()
         self.audio_analysis = None
+        self.analysis_pitch_shift = 0
+        self._set_analysis_pitch_display()
+        self._set_analysis_pitch_controls(False)
         self.pitch_shift = 0
         self._saved_pitch_shift = 0
         self._set_pitch_display()
         self.file_card.set_visible(True)
         self.file_name.set_text(self.input_path.name)
         self.file_meta.set_text("Analizando archivo…")
-        self.analysis_meta.set_text("Calculando BPM, tonalidad, dinámica y espectro…")
+        self.analysis_meta.set_text("Calculando BPM, tonalidad, dinámica y acordes…")
         self._set_chord_panels(None)
-        self.spectrum_view.set_spectrum(())
-        self.spectrum_view.set_visible(False)
-        self._set_status("Analizando audio", "Comprobando duración, formato, canales y metadatos musicales", "ANALIZANDO", pending=True)
+        self.progress.set_visible(True)
+        self.progress.set_fraction(0.0)
+        self._set_status("Analizando audio", "Comprobando duración, formato, canales y análisis armónico", "ANALIZANDO", pending=True)
+        self._start_processing_clock()
         threading.Thread(target=self._probe_worker, args=(self.input_path,), daemon=True).start()
 
     def _probe_worker(self, path: Path) -> None:
@@ -880,11 +809,12 @@ class MainWindow(Gtk.ApplicationWindow):
     def _probe_success(self, info, analysis: AudioAnalysis | None = None) -> bool:
         self.audio_info = info
         self.audio_analysis = analysis
+        self._stop_processing_clock()
+        self.progress.set_visible(False)
+        self._set_analysis_pitch_controls(bool(analysis))
         self.file_meta.set_text(f"{info.format_name}  ·  {info.duration_label}  ·  {info.sample_rate_label}  ·  {info.channels} ch")
         self.analysis_meta.set_text(analysis.summary if analysis else "Análisis musical no disponible")
         self._set_chord_panels(analysis)
-        self.spectrum_view.set_spectrum(analysis.spectrum if analysis else ())
-        self.spectrum_view.set_visible(bool(analysis and analysis.spectrum))
         if info.channels == 2:
             self._set_status("Mezcla lista", "Estéreo detectado · Demucs puede preparar seis categorías", "LISTO")
             self.sidebar_status.set_text("Elige una carpeta de trabajo y pulsa separar.")
@@ -962,6 +892,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.progress.set_visible(True)
         self.progress.set_fraction(0.0)
         self._set_status("Preparando separación", "Demucs 6s se ejecuta únicamente en este equipo", "PROCESANDO")
+        self._start_processing_clock()
         self.sidebar_status.set_text("Puedes cancelar; se eliminarán los archivos parciales.")
         threading.Thread(target=self._separation_worker, daemon=True).start()
 
@@ -991,6 +922,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _separation_success(self, result: SeparationResult) -> bool:
         self._busy = False
         self.cancel_event = None
+        self._stop_processing_clock()
         self.result = result
         self.pitch_shift = 0
         self._saved_pitch_shift = 0
@@ -1023,7 +955,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.timeline.set_range(0, max(0.1, self.audio_info.duration))
         self.timeline.set_value(0)
         self.total_time.set_text(fmt_time(self.audio_info.duration))
-        self.waveform.set_progress(0)
 
     def _track_changed(self, index: int, state: dict) -> None:
         if index >= len(self.track_states):
@@ -1061,7 +992,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self.timeline.set_value(max(0, min(duration, seconds)))
         self._updating_timeline = False
         self.current_time.set_text(fmt_time(seconds))
-        self.waveform.set_progress(seconds / duration)
 
     def _update_playback(self) -> bool:
         if self.result and self.player.pipeline:
@@ -1243,6 +1173,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _operation_cancelled(self, detail: str) -> bool:
         self._busy = False
         self.cancel_event = None
+        self._stop_processing_clock()
         self.progress.set_visible(False)
         self.youtube_button.set_sensitive(True)
         self._set_separation_button_text("Separar y preparar pistas")
@@ -1255,6 +1186,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _operation_error(self, detail: str) -> bool:
         self._busy = False
         self.cancel_event = None
+        self._stop_processing_clock()
         self.progress.set_visible(False)
         self.youtube_button.set_sensitive(True)
         self._set_separation_button_text("Separar y preparar pistas")
@@ -1264,6 +1196,31 @@ class MainWindow(Gtk.ApplicationWindow):
         self.export_button.set_sensitive(bool(self.result))
         self._update_start_state()
         return False
+
+
+    def _start_processing_clock(self) -> None:
+        self.processing_started_at = time.monotonic()
+        self.processing_elapsed.set_visible(True)
+        self._update_processing_clock()
+        if self.processing_timer_id is None:
+            self.processing_timer_id = GLib.timeout_add(250, self._update_processing_clock)
+
+    def _stop_processing_clock(self) -> None:
+        self.processing_started_at = None
+        self.processing_elapsed.set_visible(False)
+        if self.processing_timer_id is not None:
+            GLib.source_remove(self.processing_timer_id)
+            self.processing_timer_id = None
+
+    def _update_processing_clock(self) -> bool:
+        if self.processing_started_at is None:
+            self.processing_timer_id = None
+            return False
+        elapsed = max(0.0, time.monotonic() - self.processing_started_at)
+        self.processing_elapsed.set_text(f"Tiempo transcurrido · {elapsed:.1f} s")
+        if self.progress.get_visible() and self.progress.get_fraction() <= 0.001:
+            self.progress.pulse()
+        return True
 
     def _set_status(self, title: str, detail: str, pill: str, pending: bool = False) -> None:
         self.status_title.set_text(title)

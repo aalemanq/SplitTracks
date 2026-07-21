@@ -113,12 +113,22 @@ button.header-action {
 }
 
 button.header-stem-toggle {
-  min-width: 30px;
-  min-height: 30px;
-  padding: 0 6px;
-  border-radius: 8px;
+  min-width: 0;
+  min-height: 34px;
+  padding: 0 8px;
+  border-radius: 10px;
   background: @surface;
   color: @muted;
+}
+
+.header-stem-label {
+  color: inherit;
+  font-size: 9px;
+  font-weight: 800;
+}
+
+button.header-stem-toggle image {
+  color: inherit;
 }
 
 button.header-stem-toggle:hover,
@@ -156,10 +166,10 @@ button.header-split-action:disabled {
 }
 
 .header-status {
-  min-height: 29px;
+  min-height: 34px;
   padding: 0 11px;
   border: 1px solid @line-strong;
-  border-radius: 16px;
+  border-radius: 10px;
   background: @surface;
   color: @cyan;
 }
@@ -239,11 +249,18 @@ button.header-split-action:disabled {
   line-height: 1.45;
 }
 
+.card,
+.status-card,
+.tone-card,
+.player-card,
+.chord-panel {
+  border: 1px solid @line;
+  border-radius: 14px;
+  background: @surface;
+}
+
 .card {
   padding: 15px;
-  border: 1px solid @line;
-  border-radius: 15px;
-  background: @surface;
 }
 
 .card-title {
@@ -389,9 +406,6 @@ entry placeholder {
 .status-card {
   min-height: 66px;
   padding: 12px 14px;
-  border: 1px solid @line;
-  border-radius: 14px;
-  background: @surface;
 }
 
 .status-mark {
@@ -445,10 +459,7 @@ progressbar progress {
 }
 
 .tone-card {
-  padding: 13px 15px;
-  border: 1px solid @line;
-  border-radius: 14px;
-  background: @surface;
+  padding: 10px 12px;
 }
 
 .tone-card image,
@@ -486,11 +497,19 @@ progressbar progress {
   font-size: 10px;
 }
 
-.wave-card {
-  padding: 15px 17px 12px;
-  border: 1px solid @line;
-  border-radius: 15px;
-  background: @surface;
+.player-card {
+  padding: 12px 14px;
+}
+
+.player-separator {
+  min-height: 25px;
+  background: @line;
+}
+
+.processing-elapsed {
+  color: @cyan;
+  font-size: 10px;
+  font-variant: tabular-nums;
 }
 
 .time-label {
@@ -694,30 +713,29 @@ checkbutton.category-check:disabled {
 
 .chord-panel {
   min-width: 0;
-  min-height: 58px;
-  padding: 7px;
-  border: 1px solid @line;
-  border-radius: 10px;
-  background: @surface;
+  min-height: 124px;
+  padding: 11px;
 }
 
 .chord-panel-title {
-  color: @muted;
-  font-size: 9px;
-  font-weight: 700;
+  color: @ink;
+  font-size: 11px;
+  font-weight: 850;
   letter-spacing: 0.3px;
 }
 
 .chord-flow {
-  min-height: 25px;
+  min-height: 30px;
+  margin-top: 4px;
 }
 
 .chord-chip {
-  min-width: 27px;
-  padding: 4px 6px;
-  border-radius: 7px;
-  font-size: 11px;
-  font-weight: 700;
+  min-width: 0;
+  min-height: 28px;
+  padding: 5px 8px;
+  border-radius: 9px;
+  font-size: 13px;
+  font-weight: 850;
 }
 
 .chord-panel-chords .chord-chip {
@@ -733,14 +751,6 @@ checkbutton.category-check:disabled {
 .chord-placeholder {
   color: @muted;
   font-size: 10px;
-}
-
-.spectrum-view {
-  min-height: 44px;
-  margin-top: 6px;
-  border: 1px solid @line;
-  border-radius: 10px;
-  background: @surface;
 }
 
 .track-row {

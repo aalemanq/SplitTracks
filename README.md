@@ -18,7 +18,8 @@ No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una 
 
 ## Análisis musical local
 
-Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un resumen con BPM, tonalidad, LUFS y dinámica, además de un espectro compacto. También estima una progresión de triadas mayores y menores por segmentos de aproximadamente uno o dos segundos, mostrando los acordes y sus grados en cuatro columnas para facilitar la lectura.
+Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un resumen con BPM, tonalidad, LUFS y dinámica. También estima una progresión de triadas mayores y menores por segmentos de aproximadamente uno o dos segundos, mostrando los acordes y sus grados en cuatro columnas para facilitar la lectura.
+Los botones `−`, `+` y `Original` de `Transponer análisis` cambian solo la representación de acordes y grados; los controles equivalentes del reproductor cambian la preescucha y permiten guardar los MP3 en la tonalidad elegida.
 
 La detección de acordes es deliberadamente local y prudente: usa perfiles de chroma y plantillas de triadas, aplica suavizado temporal para descartar cambios aislados de baja confianza y reconoce patrones repetidos de mezcla modal como I–III–IV–iv. No consulta webs ni presenta una transcripción como exacta. Las páginas de acordes pueden elegir nombres distintos para una misma sonoridad —por inversión, extensiones o simplificación—, así que la mejor validación sigue siendo escuchar el segmento y contrastarlo con el instrumento.
 
@@ -50,7 +51,7 @@ Después:
 
 ## Flujo
 
-1. Pega un enlace de YouTube y pulsa `Descargar`, o selecciona/arrastra un archivo local.
+1. Pega un enlace de YouTube y pulsa `Añadir`, o pulsa `Subir audio` para elegir un archivo local.
 2. Elige las categorías que quieres conservar; `Other` se calcula automáticamente.
 3. Elige una carpeta de trabajo explícita.
 4. Pulsa `Separar y preparar pistas`.
@@ -59,7 +60,7 @@ Después:
 7. Pulsa `−` y `+` para preescuchar cada semitono al vuelo mientras la canción sigue sonando.
 8. Cuando te guste, pulsa `Guardar tonalidad` para crear las pistas MP3 en esa tonalidad.
 
-Las descargas de YouTube son solo para uso personal y deben respetar los derechos y condiciones aplicables al contenido.
+La entrada de YouTube se descarga solo para uso personal y debe respetar los derechos y condiciones aplicables al contenido.
 
 Cada sesión genera `INFORME.md` y `PROVENANCE.json` con el modelo, categorías, método y hashes de salida.
 
