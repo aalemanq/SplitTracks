@@ -15,6 +15,7 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gst", "1.0")
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk
 
+from analysis import AnalysisError, AudioAnalysis, analyze_audio
 from engine import AudioEngineError, SeparationCancelled, SeparationEngine, SeparationResult, STEM_LABELS, STEM_ORDER
 from library import Library, LibraryError
 from player import MixerPlayer
@@ -147,6 +148,35 @@ class Waveform(Gtk.DrawingArea):
             context.stroke()
 
 
+class SpectrumView(Gtk.DrawingArea):
+    def __init__(self):
+        super().__init__()
+        self.values: tuple[float, ...] = ()
+        self.set_content_height(44)
+        self.set_hexpand(True)
+        self.add_css_class("spectrum-view")
+        self.set_draw_func(self._draw)
+
+    def set_spectrum(self, values: tuple[float, ...] | list[float] | None) -> None:
+        self.values = tuple(values or ())
+        self.queue_draw()
+
+    def _draw(self, _area, context, width, height) -> None:
+        if not self.values or width <= 0 or height <= 0:
+            return
+        count = len(self.values)
+        gap = 2.0
+        bar_width = max(1.0, (width - gap * (count - 1)) / count)
+        for index, value in enumerate(self.values):
+            level = max(0.06, min(1.0, (float(value) + 60.0) / 60.0))
+            bar_height = max(3.0, (height - 8.0) * level)
+            x = index * (bar_width + gap)
+            y = (height - bar_height) / 2.0
+            context.set_source_rgba(0.16, 0.72, 0.66, 0.82 if level > 0.12 else 0.42)
+            context.rectangle(x, y, bar_width, bar_height)
+            context.fill()
+
+
 class TrackRow(Gtk.Box):
     def __init__(self, index: int, stem: dict, changed):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
@@ -236,6 +266,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.player = MixerPlayer(on_error=self._player_error, on_eos=self._player_eos)
         self.input_path: Path | None = None
         self.audio_info = None
+        self.audio_analysis: AudioAnalysis | None = None
         self.output_folder: Path | None = None
         self.result: SeparationResult | None = None
         self.track_states: list[dict] = []
@@ -393,8 +424,13 @@ class MainWindow(Gtk.ApplicationWindow):
         self.favorite_button.connect("toggled", self._favorite_toggled)
         file_header.append(self.favorite_button)
         self.file_meta = label("", "file-meta")
+        self.analysis_meta = label("", "file-analysis", wrap=True)
+        self.spectrum_view = SpectrumView()
+        self.spectrum_view.set_visible(False)
         self.file_card.append(file_header)
         self.file_card.append(self.file_meta)
+        self.file_card.append(self.analysis_meta)
+        self.file_card.append(self.spectrum_view)
         body.append(source_card)
         body.append(self.file_card)
 
@@ -736,6 +772,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if not keep_youtube_temp:
             self._cleanup_youtube_temp()
         self.input_path = Path(path).expanduser().resolve()
+        self.audio_analysis = None
         self.library_track_id = None
         self._updating_favorite = True
         self.favorite_button.set_active(False)
@@ -748,18 +785,27 @@ class MainWindow(Gtk.ApplicationWindow):
         self.file_card.set_visible(True)
         self.file_name.set_text(self.input_path.name)
         self.file_meta.set_text("Analizando archivo…")
-        self._set_status("Analizando audio", "Comprobando duración, formato y canales", "ANALIZANDO", pending=True)
+        self.analysis_meta.set_text("Calculando BPM, tonalidad, dinámica y espectro…")
+        self.spectrum_view.set_spectrum(())
+        self.spectrum_view.set_visible(False)
+        self._set_status("Analizando audio", "Comprobando duración, formato, canales y metadatos musicales", "ANALIZANDO", pending=True)
         threading.Thread(target=self._probe_worker, args=(self.input_path,), daemon=True).start()
 
     def _probe_worker(self, path: Path) -> None:
         try:
             info = self.engine.probe(path)
-            GLib.idle_add(self._probe_success, info)
+            analysis = None
+            try:
+                analysis = analyze_audio(path)
+            except (AnalysisError, OSError, ValueError):
+                pass
+            GLib.idle_add(self._probe_success, info, analysis)
         except AudioEngineError as exc:
             GLib.idle_add(self._operation_error, str(exc))
 
-    def _probe_success(self, info) -> bool:
+    def _probe_success(self, info, analysis: AudioAnalysis | None = None) -> bool:
         self.audio_info = info
+        self.audio_analysis = analysis
         if self.youtube_temp_dir is None and self.library is not None:
             try:
                 record = self.library.upsert_track(
@@ -769,6 +815,7 @@ class MainWindow(Gtk.ApplicationWindow):
                     format_name=info.format_name,
                     sample_rate=info.sample_rate,
                     channels=info.channels,
+                    analysis=analysis.as_dict() if analysis else None,
                 )
                 self.library_track_id = record.track_id
                 self._updating_favorite = True
@@ -783,6 +830,9 @@ class MainWindow(Gtk.ApplicationWindow):
                     f"Audio listo, pero la biblioteca no pudo registrar la pista: {exc}"
                 )
         self.file_meta.set_text(f"{info.format_name}  ·  {info.duration_label}  ·  {info.sample_rate_label}  ·  {info.channels} ch")
+        self.analysis_meta.set_text(analysis.summary if analysis else "Análisis musical no disponible")
+        self.spectrum_view.set_spectrum(analysis.spectrum if analysis else ())
+        self.spectrum_view.set_visible(bool(analysis and analysis.spectrum))
         if info.channels == 2:
             self._set_status("Mezcla lista", "Estéreo detectado · Demucs puede preparar seis categorías", "LISTO")
             self.sidebar_status.set_text("Elige una carpeta de trabajo y pulsa separar.")

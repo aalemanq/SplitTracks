@@ -604,6 +604,21 @@ checkbutton.category-check:disabled {
   font-size: 10px;
 }
 
+.file-analysis {
+  margin-top: 4px;
+  color: @cyan;
+  font-size: 10px;
+  letter-spacing: 0.1px;
+}
+
+.spectrum-view {
+  min-height: 44px;
+  margin-top: 6px;
+  border: 1px solid @line;
+  border-radius: 10px;
+  background: @surface;
+}
+
 .favorite-toggle {
   min-width: 30px;
   min-height: 30px;

@@ -18,9 +18,13 @@ No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una 
 
 ## Biblioteca local
 
-Los archivos de audio locales se mantienen en su ubicación original: Split Tracks no los mueve, copia ni elimina. Al analizarlos, la aplicación guarda una referencia y sus metadatos básicos en `~/.local/share/split-tracks/library.sqlite3` (o dentro de XDG_DATA_HOME si está configurada). Desde ahí se conservarán los favoritos y, más adelante, el análisis musical y las miniaturas. Los archivos descargados de YouTube seguirán siendo temporales hasta que se implemente su almacenamiento persistente.
+Los archivos de audio locales se mantienen en su ubicación original: Split Tracks no los mueve, copia ni elimina. Al analizarlos, la aplicación guarda una referencia y sus metadatos básicos en `~/.local/share/split-tracks/library.sqlite3` (o dentro de XDG_DATA_HOME si está configurada). Desde ahí se conservan los favoritos y el análisis musical de cada pista: BPM estimado, tonalidad/escala, LUFS integrados, pico, rango dinámico y un resumen del espectro. La aplicación solo guarda referencias y metadatos; no mueve, copia ni elimina el audio original. Los archivos descargados de YouTube siguen siendo temporales hasta que se implemente su almacenamiento persistente.
 
 
+
+## Análisis musical local
+
+Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un resumen con BPM, tonalidad, LUFS y dinámica, además de un espectro compacto; los valores completos quedan en SQLite para usarlos después en la biblioteca y el reproductor. BPM y tonalidad son estimaciones y conviene confirmarlos de oído, especialmente en canciones con cambios de tempo, modulaciones o mucha percusión.
 
 ## Ejecutar en Ubuntu 24.04.4 LTS
 
@@ -64,7 +68,7 @@ Cada sesión genera `INFORME.md` y `PROVENANCE.json` con el modelo, categorías,
 ## Verificación rápida
 
 ```bash
-python3 -m py_compile app.py engine.py player.py
+python3 -m py_compile app.py analysis.py engine.py library.py player.py
 ./.venv/bin/python -c "import torch, torchaudio, demucs; print(torch.__version__, torch.cuda.is_available())"
 ```
 
