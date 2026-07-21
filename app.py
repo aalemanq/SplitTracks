@@ -853,7 +853,11 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_play_icon(False)
         transport.append(self.play_button)
 
-        vol_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        spacer = Gtk.Box()
+        spacer.set_size_request(18, -1)
+        transport.append(spacer)
+
+        vol_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=2)
         vol_box.append(ui_icon("audio-volume-high-symbolic", 15))
         self.master_volume_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0.0, 1.5, 0.01)
         self.master_volume_scale.set_value(1.0)
