@@ -12,6 +12,9 @@ Antes de cambiar código, lee `docs/PROJECT_CONTEXT.md` y `docs/DEVELOPMENT.md`.
 - No hagas `git push` salvo petición explícita. Antes de commitear ejecuta sintaxis, tests y `git diff --check`.
 - Usa `apply_patch` para editar; si el entorno lo impide, realiza el cambio equivalente de forma segura y documenta la validación.
 - No borres ni resetees cambios del usuario. No uses `git reset --hard` ni `git checkout --` sin autorización.
+- Ramas: trabaja **siempre** en ramas de feature desde `main`, nunca directamente en `main`.
+- Pregunta antes de mergear a `main`. No hagas merge sin confirmación del usuario.
+- Flujo por tarea: feature branch → cambios → validar → commit → preguntar merge → (si aprueba) merge a main y push.
 
 ## Mapa rápido
 
