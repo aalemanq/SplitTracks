@@ -1,116 +1,74 @@
-@define-color ink #26323a;
-@define-color muted #7d8b8e;
-@define-color canvas #f5f7f3;
-@define-color surface #ffffff;
-@define-color surface-soft #fbfcfa;
-@define-color line #e7ebe6;
-@define-color green #2f7d68;
-@define-color green-soft #e8f4ee;
-@define-color pink #b94e61;
-@define-color pink-soft #fff0f3;
-@define-color purple #65529a;
-@define-color purple-soft #f3effc;
-@define-color teal #328e89;
-@define-color teal-soft #eaf8f6;
-@define-color orange #c9773d;
-@define-color orange-soft #fff1e7;
-@define-color gold #9a7d25;
-@define-color gold-soft #fff8df;
-@define-color blue #6178bb;
-@define-color blue-soft #eef2ff;
+@define-color ink #f4f5f7;
+@define-color muted #9ba4b6;
+@define-color panel #171b24;
+@define-color panel-soft #1d2230;
+@define-color outline #2b3241;
+@define-color mint #9ef1cf;
+@define-color mint-strong #6ee0b0;
+@define-color coral #f4a7b9;
+@define-color blue #a6b8ff;
 
 window {
-  background: @canvas;
+  background: #10131a;
   color: @ink;
 }
 
 headerbar {
-  min-height: 70px;
-  padding: 0 24px;
-  background: #fff4ef;
-  border: 0;
-  border-bottom: 1px solid #f0e7e1;
+  min-height: 72px;
+  padding: 0 22px;
+  background: #12161e;
+  border-bottom: 1px solid @outline;
 }
 
 headerbar button {
-  min-height: 30px;
-  padding: 5px 11px;
-  border: 1px solid #eadfd9;
-  border-radius: 18px;
-  background: #ffffff;
+  border-radius: 10px;
   color: @muted;
-  font-size: 10px;
-  font-weight: 800;
-}
-
-headerbar button:hover {
-  border-color: #c8ded5;
-  background: @green-soft;
-  color: @green;
 }
 
 .brand-mark {
-  min-width: 38px;
-  min-height: 38px;
-  border-radius: 13px;
-  background: #292536;
-  color: #ffffff;
-  font-size: 18px;
-  font-weight: 850;
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 12px;
+  background: @mint;
+  color: #12161e;
+  font-size: 17px;
+  font-weight: 800;
 }
 
 .brand-title {
   color: @ink;
-  font-size: 17px;
-  font-weight: 850;
-  letter-spacing: 0.5px;
+  font-size: 16px;
+  font-weight: 700;
 }
 
 .brand-subtitle {
   color: @muted;
-  font-size: 10px;
-  font-weight: 650;
-  letter-spacing: 0.2px;
-}
-
-.app-root,
-.workspace,
-.sidebar {
-  background: @canvas;
+  font-size: 11px;
 }
 
 .sidebar {
-  border-right: 1px solid @line;
+  background: #141820;
+  border-right: 1px solid @outline;
 }
 
-.sidebar-scroll,
-.sidebar-scroll viewport,
-.workspace scrolledwindow,
-.workspace viewport {
-  background: transparent;
-  border: 0;
-}
-
-.workspace-content {
+.sidebar-scroll {
   background: transparent;
 }
 
 .eyebrow {
-  color: @green;
+  color: @mint-strong;
   font-size: 10px;
-  font-weight: 850;
-  letter-spacing: 1.15px;
+  font-weight: 800;
+  letter-spacing: 1.1px;
 }
 
 .page-title {
   color: @ink;
-  font-size: 25px;
-  font-weight: 850;
-  letter-spacing: -0.3px;
+  font-size: 24px;
+  font-weight: 750;
 }
 
-.page-subtitle,
-.helper {
+.page-subtitle, .helper {
   color: @muted;
   font-size: 12px;
   line-height: 1.45;
@@ -118,332 +76,125 @@ headerbar button:hover {
 
 .card {
   padding: 16px;
-  border: 1px solid @line;
-  border-radius: 19px;
-  background: @surface;
+  border: 1px solid @outline;
+  border-radius: 16px;
+  background: @panel;
 }
 
 .card-title {
   color: @ink;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .card-caption {
   color: @muted;
-  font-size: 10px;
-  line-height: 1.35;
-}
-
-separator {
-  margin: 3px 0;
-  background: @line;
-}
-
-entry {
-  min-height: 34px;
-  padding: 0 11px;
-  border: 1px solid @line;
-  border-radius: 10px;
-  background: @surface-soft;
-  color: @ink;
-  caret-color: @green;
-}
-
-entry:focus {
-  border-color: #b9d8cb;
-  background: @surface;
+  font-size: 11px;
 }
 
 .drop-zone {
-  min-height: 126px;
-  padding: 15px;
-  border: 1px dashed #cbd9d1;
-  border-radius: 15px;
-  background: #fafcf9;
+  min-height: 128px;
+  padding: 16px;
+  border: 1px dashed #4e596e;
+  border-radius: 13px;
+  background: #1a202c;
 }
 
 .drop-zone:hover {
-  border-color: #83bea7;
-  background: #f3fbf6;
+  border-color: @mint-strong;
+  background: #202a30;
 }
 
 .drop-icon {
-  min-width: 43px;
-  min-height: 43px;
-  border-radius: 50%;
-  background: @green-soft;
-  color: @green;
-  font-size: 20px;
-  font-weight: 800;
+  min-width: 40px;
+  min-height: 40px;
+  border-radius: 13px;
+  background: #293b39;
+  color: @mint;
+  font-size: 19px;
+  font-weight: 700;
 }
 
 .file-name {
   color: @ink;
   font-size: 13px;
-  font-weight: 800;
+  font-weight: 650;
 }
 
 .file-meta {
   color: @muted;
-  font-size: 10px;
-}
-
-button {
-  min-height: 34px;
-  padding: 5px 12px;
-  border-radius: 10px;
-  color: @ink;
-  font-weight: 700;
-}
-
-button:hover {
-  background: #f1f5f1;
-}
-
-button:disabled {
-  opacity: 0.48;
+  font-size: 11px;
 }
 
 button.primary-action {
   min-height: 46px;
-  border: 1px solid #1f2825;
-  border-radius: 13px;
-  background: #202124;
-  color: #ffffff;
-  font-size: 13px;
-  font-weight: 850;
+  border-radius: 12px;
+  background: @mint;
+  color: #12161e;
+  font-weight: 800;
 }
 
 button.primary-action:hover {
-  background: #34383a;
+  background: #b7f7dc;
 }
 
-button.secondary-action,
-button.compact-action,
-.folder-button {
-  border: 1px solid @line;
+button.secondary-action {
+  border: 1px solid @outline;
   border-radius: 10px;
-  background: @surface;
-  color: @green;
-  font-size: 11px;
-  font-weight: 800;
+  background: @panel-soft;
+  color: @ink;
 }
 
-button.secondary-action:hover,
-button.compact-action:hover,
-.folder-button:hover {
-  border-color: #b9d8cb;
-  background: @green-soft;
-}
-
-button.compact-action {
-  min-height: 28px;
-  padding: 3px 10px;
-  border-radius: 15px;
+button.secondary-action:hover {
+  border-color: #55637a;
+  background: #252c3b;
 }
 
 .folder-button {
-  min-height: 34px;
-  padding: 5px 13px;
-}
-
-.folder-path {
-  color: @green;
-  font-size: 10px;
-  font-weight: 650;
-}
-
-.extract-card {
-  padding-bottom: 15px;
-}
-
-.category-card {
-  min-height: 58px;
-  padding: 9px 10px;
-  border: 1px solid @line;
-  border-radius: 13px;
-}
-
-.category-vocals {
-  background: @pink-soft;
-  border-color: #f1d2d8;
-}
-
-.category-drums {
-  background: @orange-soft;
-  border-color: #f2d8c5;
-}
-
-.category-bass {
-  background: @teal-soft;
-  border-color: #cfe8e4;
-}
-
-.category-guitar {
-  background: @purple-soft;
-  border-color: #ddd4f0;
-}
-
-.category-piano {
-  background: @gold-soft;
-  border-color: #eee2ae;
-}
-
-.category-other {
-  background: #f0f4f1;
-  border-color: #dce5df;
-}
-
-.category-check {
+  min-height: 38px;
+  border: 1px solid @outline;
+  border-radius: 10px;
+  background: #1c212d;
   color: @ink;
-  font-size: 11px;
-  font-weight: 800;
-}
-
-.category-check checkbutton {
-  min-height: 19px;
-}
-
-checkbutton check {
-  min-width: 17px;
-  min-height: 17px;
-  border: 1px solid #cdd7d0;
-  border-radius: 6px;
-  background: #ffffff;
-}
-
-checkbutton:hover check {
-  border-color: #9bc6b3;
-}
-
-checkbutton:checked check {
-  border-color: @green;
-  background: @green;
-  color: #ffffff;
-}
-
-.category-vocals checkbutton:checked check {
-  border-color: @pink;
-  background: @pink;
-}
-
-.category-drums checkbutton:checked check {
-  border-color: @orange;
-  background: @orange;
-}
-
-.category-guitar checkbutton:checked check {
-  border-color: @purple;
-  background: @purple;
-}
-
-.category-piano checkbutton:checked check {
-  border-color: @gold;
-  background: @gold;
-}
-
-.category-note {
-  color: @muted;
-  font-size: 9px;
-  line-height: 1.25;
-}
-
-.license-note {
-  padding: 11px;
-  border: 1px solid #dce9e1;
-  border-radius: 12px;
-  background: @green-soft;
-  color: #668078;
-  font-size: 10px;
-  line-height: 1.35;
 }
 
 .status-card {
-  min-height: 66px;
-  padding: 15px 17px;
-  border: 1px solid #dbe9e1;
-  border-radius: 17px;
-  background: #eef8f2;
+  padding: 16px 18px;
+  border: 1px solid @outline;
+  border-radius: 15px;
+  background: #181e29;
 }
 
 .status-title {
   color: @ink;
-  font-size: 16px;
-  font-weight: 850;
+  font-size: 14px;
+  font-weight: 700;
 }
 
 .status-detail {
-  color: #70827d;
-  font-size: 11px;
+  color: @muted;
+  font-size: 12px;
 }
 
 .status-pill {
-  min-height: 23px;
-  padding: 5px 10px;
-  border-radius: 15px;
-  background: @green-soft;
-  color: @green;
-  font-size: 9px;
-  font-weight: 850;
-  letter-spacing: 0.35px;
+  padding: 6px 10px;
+  border-radius: 20px;
+  background: #20342f;
+  color: @mint;
+  font-size: 10px;
+  font-weight: 800;
 }
 
 .status-pill.pending {
-  background: #f0f2ef;
+  background: #2a2d38;
   color: @muted;
 }
 
-progressbar {
-  min-height: 5px;
-}
-
-progressbar trough {
-  min-height: 5px;
-  border-radius: 5px;
-  background: #e5ebe6;
-}
-
-progressbar progress {
-  min-height: 5px;
-  border-radius: 5px;
-  background: @green;
-}
-
-.tone-card {
-  padding: 13px 16px;
-  border: 1px solid @line;
-  border-radius: 17px;
-  background: @surface;
-}
-
-.tone-button {
-  min-width: 37px;
-  min-height: 34px;
-  border: 1px solid #cfe3d8;
-  border-radius: 10px;
-  background: @green-soft;
-  color: @green;
-  font-size: 18px;
-  font-weight: 850;
-}
-
-.tone-button:hover {
-  border-color: #8ec4aa;
-  background: #d9efe3;
-}
-
-.tone-value {
-  color: @green;
-  font-size: 12px;
-  font-weight: 850;
-}
-
 .wave-card {
-  padding: 16px 18px;
-  border: 1px solid @line;
-  border-radius: 17px;
-  background: @surface;
+  padding: 18px;
+  border: 1px solid @outline;
+  border-radius: 16px;
+  background: #151a23;
 }
 
 .time-label {
@@ -453,69 +204,63 @@ progressbar progress {
 }
 
 scale trough {
-  min-height: 6px;
-  border-radius: 6px;
-  background: #e3e9e4;
+  min-height: 5px;
+  border-radius: 5px;
+  background: #303747;
 }
 
 scale highlight {
-  border-radius: 6px;
-  background: @green;
+  border-radius: 5px;
+  background: @mint-strong;
 }
 
 scale slider {
   min-width: 15px;
   min-height: 15px;
-  border: 3px solid @surface;
+  border: 2px solid #10131a;
   border-radius: 50%;
-  background: @green;
+  background: @mint;
 }
 
 .transport button {
   min-width: 38px;
-  min-height: 35px;
-  border: 1px solid @line;
+  min-height: 36px;
   border-radius: 11px;
-  background: @surface;
+  background: #252c3a;
   color: @ink;
-  font-size: 14px;
+  font-size: 15px;
 }
 
 .transport button.play-button {
-  min-width: 86px;
-  min-height: 38px;
-  border-radius: 20px;
-  background: @green;
-  color: #ffffff;
-  font-weight: 850;
-}
-
-.transport button.play-button:hover {
-  background: #256b5a;
+  min-width: 48px;
+  min-height: 42px;
+  border-radius: 13px;
+  background: @mint;
+  color: #10131a;
+  font-weight: 800;
 }
 
 .section-heading {
   color: @ink;
   font-size: 16px;
-  font-weight: 850;
+  font-weight: 750;
 }
 
 .section-note {
   color: @muted;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .track-row {
-  min-height: 68px;
-  padding: 9px 12px;
-  border: 1px solid @line;
-  border-radius: 14px;
-  background: @surface;
+  min-height: 74px;
+  padding: 10px 12px;
+  border: 1px solid @outline;
+  border-radius: 13px;
+  background: @panel;
 }
 
 .track-row:hover {
-  border-color: #cfe1d7;
-  background: #fcfefd;
+  background: #1d2330;
 }
 
 .track-dot {
@@ -526,71 +271,119 @@ scale slider {
 
 .track-name {
   color: @ink;
-  font-size: 12px;
-  font-weight: 800;
+  font-size: 13px;
+  font-weight: 700;
 }
 
 .track-kind {
   color: @muted;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .track-value {
   min-width: 42px;
   color: @muted;
-  font-size: 10px;
+  font-size: 11px;
   font-variant: tabular-nums;
 }
 
 .track-toggle {
-  min-width: 30px;
-  min-height: 27px;
+  min-width: 31px;
+  min-height: 28px;
   padding: 0;
-  border: 1px solid @line;
+  border: 1px solid @outline;
   border-radius: 8px;
-  background: #f7f9f7;
+  background: #202634;
   color: @muted;
   font-size: 10px;
-  font-weight: 850;
+  font-weight: 800;
 }
 
 .track-toggle:checked {
-  border-color: #e2aeba;
-  background: @pink-soft;
-  color: @pink;
+  border-color: @coral;
+  background: #442a36;
+  color: @coral;
 }
 
 .track-toggle.solo:checked {
-  border-color: #c8b9e8;
-  background: @purple-soft;
-  color: @purple;
+  border-color: @blue;
+  background: #28334f;
+  color: @blue;
 }
 
 .empty-state {
   min-height: 220px;
   padding: 28px;
-  border: 1px dashed #cbd9d1;
-  border-radius: 17px;
-  background: @surface-soft;
+  border: 1px dashed #394254;
+  border-radius: 16px;
+  background: #151a23;
 }
 
 .empty-icon {
-  color: #8fb1a3;
+  color: #77849d;
   font-size: 32px;
 }
 
 .empty-title {
   color: @ink;
   font-size: 15px;
-  font-weight: 800;
+  font-weight: 700;
 }
 
 .empty-copy {
   color: @muted;
+  font-size: 12px;
+}
+
+.disabled-row {
+  opacity: 0.52;
+}
+
+.license-note {
+  padding: 11px;
+  border-radius: 10px;
+  background: #20252f;
+  color: @muted;
+  font-size: 10px;
+}
+
+.folder-path {
+  color: @mint;
   font-size: 11px;
 }
 
 .progress-text {
   color: @muted;
   font-size: 11px;
+}
+
+
+.tone-card {
+  padding: 14px 16px;
+  border: 1px solid @outline;
+  border-radius: 16px;
+  background: @panel;
+}
+
+.tone-button {
+  min-width: 38px;
+  min-height: 34px;
+  border: 1px solid @outline;
+  border-radius: 10px;
+  background: #202634;
+  color: @ink;
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.tone-button:hover {
+  border-color: @mint-strong;
+  background: #283b38;
+  color: @mint;
+}
+
+.tone-value {
+  color: @mint;
+  font-size: 13px;
+  font-weight: 750;
 }

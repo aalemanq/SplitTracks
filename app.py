@@ -148,7 +148,7 @@ class TrackRow(Gtk.Box):
 class MainWindow(Gtk.ApplicationWindow):
     def __init__(self, application: Gtk.Application):
         super().__init__(application=application, title=APP_NAME)
-        self.set_default_size(1460, 920)
+        self.set_default_size(1420, 900)
         self.set_size_request(1080, 720)
         self.engine = SeparationEngine()
         self.player = MixerPlayer(on_error=self._player_error, on_eos=self._player_eos)
@@ -201,7 +201,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _build_content(self) -> None:
         root = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL)
-        root.add_css_class("app-root")
         self.set_child(root)
         root.append(self._build_sidebar())
         root.append(self._build_workspace())
@@ -214,7 +213,7 @@ class MainWindow(Gtk.ApplicationWindow):
     def _build_sidebar(self) -> Gtk.Widget:
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         sidebar.add_css_class("sidebar")
-        sidebar.set_size_request(390, -1)
+        sidebar.set_size_request(362, -1)
 
         scroll = Gtk.ScrolledWindow()
         scroll.add_css_class("sidebar-scroll")
@@ -282,54 +281,40 @@ class MainWindow(Gtk.ApplicationWindow):
         body.append(self.file_card)
 
         extract_card = self._card()
-        extract_card.add_css_class("extract-card")
         extract_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         extract_header.append(label("Qué extraer", "card-title"))
         all_button = Gtk.Button(label="Todas")
-        all_button.add_css_class("compact-action")
+        all_button.add_css_class("secondary-action")
         all_button.set_hexpand(True)
         all_button.set_halign(Gtk.Align.END)
         all_button.connect("clicked", lambda *_: self._set_available(True))
         none_button = Gtk.Button(label="Ninguna")
-        none_button.add_css_class("compact-action")
+        none_button.add_css_class("secondary-action")
         none_button.connect("clicked", lambda *_: self._set_available(False))
         extract_header.append(all_button)
         extract_header.append(none_button)
         extract_card.append(extract_header)
+        extract_card.append(label("Solo mostramos salidas que el motor actual puede producir de forma real.", "card-caption", wrap=True))
         extract_card.append(label("Selecciona las pistas que quieres conservar. Other se calcula como complemento.", "card-caption", wrap=True))
-
-        category_grid = Gtk.Grid()
-        category_grid.set_column_spacing(9)
-        category_grid.set_row_spacing(9)
-        category_grid.set_column_homogeneous(True)
-        for index, key in enumerate(("vocals", "drums", "bass", "guitar", "piano")):
+        for key in ("vocals", "drums", "bass", "guitar", "piano"):
             display_name, kind, _color = STEM_LABELS[key]
-            category = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-            category.add_css_class("category-card")
-            category.add_css_class(f"category-{key}")
-            category.set_hexpand(True)
             check = Gtk.CheckButton(label=display_name)
-            check.add_css_class("category-check")
             check.set_active(True)
             check.connect("toggled", self._selection_changed)
             self.track_checks[key] = check
-            category.append(check)
-            category.append(label(kind, "category-note", wrap=True))
-            category_grid.attach(category, index % 2, index // 2, 1, 1)
-        extract_card.append(category_grid)
-
-        other_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=4)
-        other_card.add_css_class("category-card")
-        other_card.add_css_class("category-other")
+            extract_card.append(check)
+            note = label(kind, "card-caption")
+            note.set_margin_start(31)
+            extract_card.append(note)
         other_row = Gtk.CheckButton(label="Other")
-        other_row.add_css_class("category-check")
         other_row.set_active(True)
         other_row.set_sensitive(False)
         other_row.set_tooltip_text("Se genera siempre sumando el Other del modelo y las pistas no seleccionadas")
         self.track_checks["other"] = other_row
-        other_card.append(other_row)
-        other_card.append(label("Complemento automático de las categorías no seleccionadas", "category-note", wrap=True))
-        category_grid.attach(other_card, 0, 3, 2, 1)
+        extract_card.append(other_row)
+        other_note = label("Complemento automático de las categorías no seleccionadas", "card-caption")
+        other_note.set_margin_start(31)
+        extract_card.append(other_note)
         body.append(extract_card)
 
         output_card = self._card()
@@ -361,7 +346,6 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _build_workspace(self) -> Gtk.Widget:
         outer = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
-        outer.add_css_class("workspace")
         outer.set_hexpand(True)
         outer.set_vexpand(True)
         scroll = Gtk.ScrolledWindow()
@@ -369,7 +353,6 @@ class MainWindow(Gtk.ApplicationWindow):
         scroll.set_vexpand(True)
         outer.append(scroll)
         content = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=16)
-        content.add_css_class("workspace-content")
         content.set_margin_top(24)
         content.set_margin_bottom(24)
         content.set_margin_start(26)
@@ -379,7 +362,7 @@ class MainWindow(Gtk.ApplicationWindow):
         title_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         title_stack = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
         title_stack.set_hexpand(True)
-        title_stack.append(label("02  ·  RESULTADO", "eyebrow"))
+        title_stack.append(label("02  ·  MIXER", "eyebrow"))
         title_stack.append(label("Tu espacio de escucha", "page-title"))
         title_stack.append(label("Un reloj, dos pistas y control directo sobre cada stem.", "page-subtitle"))
         title_row.append(title_stack)
