@@ -396,20 +396,101 @@ image.drop-icon {
 }
 
 .file-name {
+  margin-bottom: 2px;
   color: @ink;
-  font-size: 17px;
-  font-weight: 800;
+  font-size: 19px;
+  font-weight: 900;
+  letter-spacing: 0.2px;
 }
 
-.file-meta {
+.analysis-metrics {
+  margin-top: 3px;
+}
+
+.analysis-metric-grid {
   margin-top: 2px;
-  padding: 8px 10px;
+}
+
+.analysis-metric {
+  min-width: 0;
+  min-height: 76px;
+  padding: 10px 11px;
   border: 1px solid @line;
-  border-radius: 10px;
-  background: @surface-raised;
+  border-radius: 11px;
+  background: @canvas;
+}
+
+.metric-label {
+  color: @muted;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: 1px;
+}
+
+.metric-value {
+  min-width: 0;
   color: @ink;
-  font-size: 12px;
+  font-size: 20px;
+  font-weight: 900;
+  font-variant: tabular-nums;
+}
+
+.metric-detail {
+  min-width: 0;
+  color: @dim;
+  font-size: 9px;
   font-weight: 700;
+}
+
+.analysis-metric-key {
+  border-color: @yellow;
+  background: @yellow-soft;
+}
+
+.analysis-metric-key .metric-label,
+.analysis-metric-key .metric-detail {
+  color: #d8bf6a;
+}
+
+.analysis-metric-key .metric-value {
+  color: #ffd34f;
+  font-size: 27px;
+  letter-spacing: 0.5px;
+}
+
+.analysis-metric-bpm {
+  border-color: #8e7412;
+  background: #3a321e;
+}
+
+.analysis-metric-bpm .metric-value {
+  color: #f5c842;
+}
+
+.analysis-metric-scale .metric-value,
+.analysis-metric-key-confidence .metric-value {
+  color: @cyan;
+}
+
+.analysis-metric-lufs .metric-value,
+.analysis-metric-duration .metric-value {
+  color: @ink;
+}
+
+.analysis-metric-dynamic .metric-value,
+.analysis-metric-tempo-confidence .metric-value {
+  color: #a7c957;
+}
+
+.analysis-metric-chords .metric-value {
+  color: @magenta;
+}
+
+.analysis-metric-format .metric-value,
+.analysis-metric-sample-rate .metric-value,
+.analysis-metric-channels .metric-value {
+  color: #c7d6d5;
+  font-size: 17px;
 }
 
 .entry,
@@ -516,8 +597,13 @@ progressbar progress {
 }
 
 .tone-value {
-  font-size: 12px;
-  font-weight: 850;
+  min-width: 140px;
+  padding: 5px 8px;
+  border-radius: 8px;
+  background: @cyan-soft;
+  color: #5bd7cb;
+  font-size: 13px;
+  font-weight: 900;
 }
 
 .tone-card button.primary-action {
@@ -729,19 +815,6 @@ checkbutton.category-check:disabled {
   color: #a9c66a;
   font-size: 12px;
   font-weight: 700;
-}
-
-.file-analysis {
-  margin-top: 4px;
-  padding: 8px 10px;
-  border: 1px solid @line;
-  border-radius: 10px;
-  background: @surface-raised;
-  color: @cyan;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: 0.1px;
-  line-height: 1.35;
 }
 
 .chord-panels {

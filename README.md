@@ -18,7 +18,7 @@ No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una 
 
 ## Análisis musical local
 
-Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un resumen con BPM, tonalidad, LUFS y dinámica. También estima una progresión de triadas mayores y menores por segmentos de aproximadamente uno o dos segundos, mostrando los acordes y sus grados en cuatro columnas para facilitar la lectura.
+Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un panel de métricas con tonalidad destacada, BPM, duración, escala, LUFS, dinámica, formato, muestreo, canales, estabilidad del tempo, confianza tonal y número de acordes. También estima una progresión de triadas mayores y menores por segmentos de aproximadamente uno o dos segundos, mostrando los acordes y sus grados en cuatro columnas para facilitar la lectura.
 Los botones `−`, `+` y `Original` de `Transponer análisis` son el único control de tonalidad: cambian la preescucha en vivo manteniendo el tempo y actualizan los acordes y grados mostrados.
 
 La detección de acordes es deliberadamente local y prudente: usa perfiles de chroma y plantillas de triadas, aplica suavizado temporal para descartar cambios aislados de baja confianza y reconoce patrones repetidos de mezcla modal como I–III–IV–iv. No consulta webs ni presenta una transcripción como exacta. Las páginas de acordes pueden elegir nombres distintos para una misma sonoridad —por inversión, extensiones o simplificación—, así que la mejor validación sigue siendo escuchar el segmento y contrastarlo con el instrumento.

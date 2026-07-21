@@ -16,7 +16,7 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gst", "1.0")
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk
 
-from analysis import AnalysisError, AudioAnalysis, analyze_audio
+from analysis import AnalysisError, AudioAnalysis, analyze_audio, transpose_note_name
 from engine import AudioEngineError, SeparationCancelled, SeparationEngine, SeparationResult, STEM_LABELS, STEM_ORDER
 from player import MixerPlayer
 
@@ -364,6 +364,72 @@ class MainWindow(Gtk.ApplicationWindow):
 
 
 
+    def _build_analysis_metric(self, key: str, title: str) -> Gtk.Box:
+        cell = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
+        cell.add_css_class("analysis-metric")
+        cell.add_css_class(f"analysis-metric-{key.replace("_", "-")}")
+        cell.append(label(title, "metric-label"))
+        value = label("—", "metric-value")
+        value.set_hexpand(True)
+        value.set_ellipsize(3)
+        cell.append(value)
+        detail = label("", "metric-detail")
+        detail.set_hexpand(True)
+        detail.set_ellipsize(3)
+        cell.append(detail)
+        self.analysis_metric_values[key] = value
+        self.analysis_metric_details[key] = detail
+        return cell
+
+    def _set_analysis_metrics(self, info, analysis: AudioAnalysis | None) -> None:
+        values = {key: "—" for key in self.analysis_metric_values}
+        details = {key: "" for key in self.analysis_metric_details}
+        if info is None:
+            values.update({key: "…" for key in values})
+            details["key"] = "calculando análisis musical"
+        else:
+            values.update({
+                "duration": info.duration_label,
+                "format": info.format_name,
+                "sample_rate": info.sample_rate_label,
+                "channels": f"{info.channels} ch" if info.channels else "—",
+            })
+            details.update({
+                "duration": "tiempo total",
+                "format": "archivo de entrada",
+                "sample_rate": "frecuencia",
+                "channels": info.channel_layout or "canales de audio",
+            })
+        if analysis:
+            displayed_key = transpose_note_name(analysis.key_name, self.pitch_shift) or "—"
+            values.update({
+                "key": displayed_key,
+                "bpm": f"{analysis.bpm:.0f}" if analysis.bpm is not None else "—",
+                "scale": analysis.scale.capitalize() if analysis.scale else "—",
+                "lufs": f"{analysis.lufs:.1f}" if analysis.lufs is not None else "—",
+                "dynamic": f"{analysis.dynamic_range_db:.1f}" if analysis.dynamic_range_db is not None else "—",
+                "tempo_confidence": f"{analysis.tempo_confidence:.0%}" if analysis.tempo_confidence is not None else "—",
+                "key_confidence": f"{analysis.key_confidence:.0%}" if analysis.key_confidence is not None else "—",
+                "chords": str(len(analysis.compact_chords)),
+            })
+            details.update({
+                "key": (
+                    f"Original {analysis.key_name} · {self._pitch_text()}"
+                    if self.pitch_shift and analysis.key_name
+                    else (f"confianza {analysis.key_confidence:.0%}" if analysis.key_confidence is not None else "tonalidad detectada")
+                ),
+                "bpm": f"confianza {analysis.tempo_confidence:.0%}" if analysis.tempo_confidence is not None else "tempo detectado",
+                "scale": "modo detectado",
+                "lufs": f"pico {analysis.peak_dbfs:.1f} dBFS" if analysis.peak_dbfs is not None else "sonoridad integrada",
+                "dynamic": "dB de rango dinámico",
+                "tempo_confidence": "estabilidad del tempo",
+                "key_confidence": "confianza tonal",
+                "chords": "cambios armónicos detectados",
+            })
+        for key, widget in self.analysis_metric_values.items():
+            widget.set_text(values[key])
+            self.analysis_metric_details[key].set_text(details[key])
+
     def _build_sidebar(self) -> Gtk.Widget:
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         sidebar.add_css_class("sidebar")
@@ -407,10 +473,35 @@ class MainWindow(Gtk.ApplicationWindow):
         self.file_name = label("", "file-name")
         self.file_name.set_hexpand(True)
         file_header.append(self.file_name)
-        self.file_meta = label("", "file-meta")
-        self.file_meta.set_hexpand(True)
-        self.analysis_meta = label("", "file-analysis", wrap=True)
-        self.analysis_meta.set_hexpand(True)
+
+        self.analysis_metric_values: dict[str, Gtk.Label] = {}
+        self.analysis_metric_details: dict[str, Gtk.Label] = {}
+        self.analysis_metrics = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=6)
+        self.analysis_metrics.add_css_class("analysis-metrics")
+        metric_grid = Gtk.Grid()
+        metric_grid.add_css_class("analysis-metric-grid")
+        metric_grid.set_column_homogeneous(True)
+        metric_grid.set_row_spacing(6)
+        metric_grid.set_column_spacing(6)
+        metric_keys = (
+            ("key", "TONALIDAD"),
+            ("bpm", "BPM"),
+            ("duration", "DURACIÓN"),
+            ("scale", "ESCALA"),
+            ("lufs", "LUFS"),
+            ("dynamic", "DINÁMICA"),
+            ("format", "FORMATO"),
+            ("sample_rate", "MUESTREO"),
+            ("channels", "CANALES"),
+            ("tempo_confidence", "TEMPO ESTABLE"),
+            ("key_confidence", "CONFIANZA TONAL"),
+            ("chords", "ACORDES"),
+        )
+        for index, (key, title) in enumerate(metric_keys):
+            metric = self._build_analysis_metric(key, title)
+            metric_grid.attach(metric, index % 3, index // 3, 1, 1)
+        self.analysis_metrics.append(metric_grid)
+        self._set_analysis_metrics(None, None)
 
         self.analysis_tone_bar = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.analysis_tone_bar.add_css_class("tone-card")
@@ -448,8 +539,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.chord_panels.append(self.chord_panel)
         self.chord_panels.append(self.degree_panel)
         self.file_card.append(file_header)
-        self.file_card.append(self.file_meta)
-        self.file_card.append(self.analysis_meta)
+        self.file_card.append(self.analysis_metrics)
         self.file_card.append(self.analysis_tone_bar)
         self.file_card.append(self.chord_panels)
         self._set_pitch_controls(False)
@@ -687,8 +777,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_pitch_display()
         self.file_card.set_visible(True)
         self.file_name.set_text(self.input_path.name)
-        self.file_meta.set_text("Analizando archivo…")
-        self.analysis_meta.set_text("Calculando BPM, tonalidad, dinámica y acordes…")
+        self._set_analysis_metrics(None, None)
         self._set_chord_panels(None)
         self.progress.set_visible(True)
         self.progress.set_fraction(0.0)
@@ -714,8 +803,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._stop_processing_clock()
         self.progress.set_visible(False)
         self._set_pitch_controls(False)
-        self.file_meta.set_text(f"{info.format_name}  ·  {info.duration_label}  ·  {info.sample_rate_label}  ·  {info.channels} ch")
-        self.analysis_meta.set_text(analysis.summary if analysis else "Análisis musical no disponible")
+        self._set_analysis_metrics(info, analysis)
         self._set_chord_panels(analysis)
         if info.channels == 2:
             self._set_status("Mezcla lista", "Estéreo detectado · Demucs puede preparar seis categorías", "LISTO")
@@ -913,6 +1001,7 @@ class MainWindow(Gtk.ApplicationWindow):
         if hasattr(self, "analysis_pitch_value"):
             self.analysis_pitch_value.set_text(self._pitch_text())
         if self.audio_analysis:
+            self._set_analysis_metrics(self.audio_info, self.audio_analysis)
             self._set_chord_panels(self.audio_analysis)
 
     def _set_pitch_controls(self, enabled: bool) -> None:
