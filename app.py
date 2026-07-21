@@ -220,7 +220,6 @@ class MainWindow(Gtk.ApplicationWindow):
         self._saved_pitch_shift = 0
         self._pitch_resume_playing = False
         self._pitch_resume_position = 0.0
-        self.analysis_pitch_shift = 0
         self.processing_started_at: float | None = None
         self.processing_timer_id: int | None = None
 
@@ -332,8 +331,8 @@ class MainWindow(Gtk.ApplicationWindow):
             while child := flow.get_first_child():
                 flow.remove(child)
 
-        events = analysis.transposed_compact_chords(self.analysis_pitch_shift) if analysis else ()
-        degrees = analysis.degree_sequence_for(self.analysis_pitch_shift) if analysis else ()
+        events = analysis.transposed_compact_chords(self.pitch_shift) if analysis else ()
+        degrees = analysis.degree_sequence_for(self.pitch_shift) if analysis else ()
         if not events:
             for flow, text in (
                 (self.chord_flow, "Analizando…"),
@@ -366,43 +365,6 @@ class MainWindow(Gtk.ApplicationWindow):
                 ellipsis.set_xalign(0.5)
                 flow.append(ellipsis)
 
-
-
-    def _analysis_pitch_text(self) -> str:
-        if self.analysis_pitch_shift == 0:
-            return "Original · 0 semitonos"
-        sign = "+" if self.analysis_pitch_shift > 0 else "−"
-        amount = abs(self.analysis_pitch_shift)
-        unit = "semitono" if amount == 1 else "semitonos"
-        return f"{sign}{amount} {unit}"
-
-    def _set_analysis_pitch_display(self) -> None:
-        if hasattr(self, "analysis_pitch_value"):
-            self.analysis_pitch_value.set_text(self._analysis_pitch_text())
-        if self.audio_analysis:
-            self._set_chord_panels(self.audio_analysis)
-
-    def _set_analysis_pitch_controls(self, enabled: bool) -> None:
-        if not hasattr(self, "analysis_pitch_down"):
-            return
-        available = bool(enabled and self.audio_analysis and not self._busy)
-        self.analysis_pitch_down.set_sensitive(available and self.analysis_pitch_shift > -12)
-        self.analysis_pitch_up.set_sensitive(available and self.analysis_pitch_shift < 12)
-        self.analysis_pitch_reset.set_sensitive(available and self.analysis_pitch_shift != 0)
-
-    def _adjust_analysis_pitch(self, delta: int) -> None:
-        if not self.audio_analysis:
-            return
-        self.analysis_pitch_shift = max(-12, min(12, self.analysis_pitch_shift + delta))
-        self._set_analysis_pitch_display()
-        self._set_analysis_pitch_controls(True)
-
-    def _reset_analysis_pitch(self) -> None:
-        if not self.audio_analysis:
-            return
-        self.analysis_pitch_shift = 0
-        self._set_analysis_pitch_display()
-        self._set_analysis_pitch_controls(True)
 
 
     def _build_sidebar(self) -> Gtk.Widget:
@@ -458,12 +420,12 @@ class MainWindow(Gtk.ApplicationWindow):
         analysis_title = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         analysis_title.set_hexpand(True)
         analysis_title.append(label("Transponer análisis", "section-heading"))
-        analysis_title.append(label("Cambia los nombres de acordes y conserva sus grados", "section-note"))
+        analysis_title.append(label("Cambia la preescucha, los acordes y los grados", "section-note"))
         self.analysis_tone_bar.append(analysis_title)
         self.analysis_pitch_down = Gtk.Button(label="−")
         self.analysis_pitch_down.add_css_class("tone-button")
         self.analysis_pitch_down.set_tooltip_text("Bajar un semitono")
-        self.analysis_pitch_down.connect("clicked", lambda *_: self._adjust_analysis_pitch(-1))
+        self.analysis_pitch_down.connect("clicked", lambda *_: self._adjust_pitch(-1))
         self.analysis_tone_bar.append(self.analysis_pitch_down)
         self.analysis_pitch_value = label("Original · 0 semitonos", "tone-value")
         self.analysis_pitch_value.set_xalign(0.5)
@@ -472,12 +434,18 @@ class MainWindow(Gtk.ApplicationWindow):
         self.analysis_pitch_up = Gtk.Button(label="+")
         self.analysis_pitch_up.add_css_class("tone-button")
         self.analysis_pitch_up.set_tooltip_text("Subir un semitono")
-        self.analysis_pitch_up.connect("clicked", lambda *_: self._adjust_analysis_pitch(1))
+        self.analysis_pitch_up.connect("clicked", lambda *_: self._adjust_pitch(1))
         self.analysis_tone_bar.append(self.analysis_pitch_up)
         self.analysis_pitch_reset = Gtk.Button(label="Original")
         self.analysis_pitch_reset.add_css_class("secondary-action")
-        self.analysis_pitch_reset.connect("clicked", lambda *_: self._reset_analysis_pitch())
+        self.analysis_pitch_reset.set_tooltip_text("Volver a la tonalidad original")
+        self.analysis_pitch_reset.connect("clicked", lambda *_: self._reset_pitch())
         self.analysis_tone_bar.append(self.analysis_pitch_reset)
+        self.analysis_pitch_save = Gtk.Button(label="Guardar")
+        self.analysis_pitch_save.add_css_class("primary-action")
+        self.analysis_pitch_save.set_tooltip_text("Crear los MP3 en la tonalidad seleccionada")
+        self.analysis_pitch_save.connect("clicked", self._save_pitch)
+        self.analysis_tone_bar.append(self.analysis_pitch_save)
 
         self.chord_panels = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.chord_panels.set_hexpand(True)
@@ -492,7 +460,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.file_card.append(self.analysis_meta)
         self.file_card.append(self.analysis_tone_bar)
         self.file_card.append(self.chord_panels)
-        self._set_analysis_pitch_controls(False)
+        self._set_pitch_controls(False)
         self._set_chord_panels(None)
         body.append(self.file_card)
 
@@ -607,39 +575,8 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_play_icon(False)
         transport.append(self.play_button)
 
-        pitch_separator = Gtk.Separator(orientation=Gtk.Orientation.VERTICAL)
-        pitch_separator.add_css_class("player-separator")
-        transport.append(pitch_separator)
-        pitch_hint = label("Tonalidad", "section-note")
-        transport.append(pitch_hint)
-        self.pitch_down = Gtk.Button(label="−")
-        self.pitch_down.add_css_class("tone-button")
-        self.pitch_down.set_tooltip_text("Bajar un semitono · bemol")
-        self.pitch_down.connect("clicked", lambda *_: self._adjust_pitch(-1))
-        transport.append(self.pitch_down)
-        self.pitch_value = label("Original · 0 semitonos", "tone-value")
-        self.pitch_value.set_xalign(0.5)
-        self.pitch_value.set_size_request(140, -1)
-        transport.append(self.pitch_value)
-        self.pitch_up = Gtk.Button(label="+")
-        self.pitch_up.add_css_class("tone-button")
-        self.pitch_up.set_tooltip_text("Subir un semitono · sostenido")
-        self.pitch_up.connect("clicked", lambda *_: self._adjust_pitch(1))
-        transport.append(self.pitch_up)
-        self.pitch_reset = Gtk.Button(label="Original")
-        self.pitch_reset.add_css_class("secondary-action")
-        self.pitch_reset.set_tooltip_text("Volver a la tonalidad original de la sesión")
-        self.pitch_reset.connect("clicked", lambda *_: self._reset_pitch())
-        transport.append(self.pitch_reset)
-        self.pitch_save = Gtk.Button(label="Guardar tonalidad")
-        self.pitch_save.add_css_class("primary-action")
-        self.pitch_save.set_tooltip_text("Crear los MP3 en la tonalidad seleccionada")
-        self.pitch_save.connect("clicked", self._save_pitch)
-        transport.append(self.pitch_save)
         player_card.append(transport)
         content.append(player_card)
-        self._set_pitch_controls(False)
-
         mix_heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         mix_heading.append(label("Pistas separadas", "section-heading"))
         mix_heading.append(label("Mute · Solo · Volumen", "section-note"))
@@ -753,9 +690,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._cleanup_youtube_temp()
         self.input_path = Path(path).expanduser().resolve()
         self.audio_analysis = None
-        self.analysis_pitch_shift = 0
-        self._set_analysis_pitch_display()
-        self._set_analysis_pitch_controls(False)
+        self._set_pitch_controls(False)
         self.pitch_shift = 0
         self._saved_pitch_shift = 0
         self._set_pitch_display()
@@ -787,7 +722,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.audio_analysis = analysis
         self._stop_processing_clock()
         self.progress.set_visible(False)
-        self._set_analysis_pitch_controls(bool(analysis))
+        self._set_pitch_controls(False)
         self.file_meta.set_text(f"{info.format_name}  ·  {info.duration_label}  ·  {info.sample_rate_label}  ·  {info.channels} ch")
         self.analysis_meta.set_text(analysis.summary if analysis else "Análisis musical no disponible")
         self._set_chord_panels(analysis)
@@ -985,17 +920,19 @@ class MainWindow(Gtk.ApplicationWindow):
         return f"{sign}{amount} {unit}"
 
     def _set_pitch_display(self) -> None:
-        if hasattr(self, "pitch_value"):
-            self.pitch_value.set_text(self._pitch_text())
+        if hasattr(self, "analysis_pitch_value"):
+            self.analysis_pitch_value.set_text(self._pitch_text())
+        if self.audio_analysis:
+            self._set_chord_panels(self.audio_analysis)
 
     def _set_pitch_controls(self, enabled: bool) -> None:
-        if not hasattr(self, "pitch_down"):
+        if not hasattr(self, "analysis_pitch_down"):
             return
         available = bool(enabled and self.result and not self._busy and self.player.pitch_supported)
-        self.pitch_down.set_sensitive(available and self.pitch_shift > -12)
-        self.pitch_up.set_sensitive(available and self.pitch_shift < 12)
-        self.pitch_reset.set_sensitive(available and self.pitch_shift != 0)
-        self.pitch_save.set_sensitive(available and self.pitch_shift != self._saved_pitch_shift)
+        self.analysis_pitch_down.set_sensitive(available and self.pitch_shift > -12)
+        self.analysis_pitch_up.set_sensitive(available and self.pitch_shift < 12)
+        self.analysis_pitch_reset.set_sensitive(available and self.pitch_shift != 0)
+        self.analysis_pitch_save.set_sensitive(available and self.pitch_shift != self._saved_pitch_shift)
 
     def _adjust_pitch(self, delta: int) -> None:
         self._preview_pitch(max(-12, min(12, self.pitch_shift + delta)))
