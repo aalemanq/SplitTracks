@@ -1050,3 +1050,25 @@ checkbutton.category-check:disabled {
   letter-spacing: 0.8px;
   text-transform: uppercase;
 }
+
+button.cancel-action {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid @red;
+  border-radius: 9px;
+  background: @red-soft;
+  color: #ffd9d4;
+  font-size: 10px;
+  font-weight: 850;
+}
+
+button.cancel-action:hover {
+  background: @red;
+  color: #fff7ef;
+}
+
+button.cancel-action:disabled {
+  border-color: @line;
+  background: @surface;
+  color: @dim;
+}

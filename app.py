@@ -16,7 +16,7 @@ gi.require_version("Gdk", "4.0")
 gi.require_version("Gst", "1.0")
 from gi.repository import Gdk, Gio, GLib, GObject, Gtk
 
-from analysis import AnalysisError, AudioAnalysis, analyze_audio, transpose_note_name
+from analysis import AnalysisCancelled, AnalysisError, AudioAnalysis, analyze_audio, transpose_note_name
 from engine import AudioEngineError, SeparationCancelled, SeparationEngine, SeparationResult, STEM_LABELS, STEM_ORDER
 from harmony import ChordCandidate, ChordChart, CifraClubProvider, HarmonyError, guess_artist_title
 from player import MixerPlayer
@@ -232,6 +232,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.pitch_shift = 0
         self.processing_started_at: float | None = None
         self.processing_timer_id: int | None = None
+        self.analysis_cancel_event: threading.Event | None = None
+        self._probe_generation = 0
+        self._process_threads: list[threading.Thread] = []
+        self._closing = False
 
         self._load_css()
         self._build_header()
@@ -318,6 +322,11 @@ class MainWindow(Gtk.ApplicationWindow):
         card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         card.add_css_class("card")
         return card
+
+    def _launch_process_worker(self, target, args: tuple = ()) -> None:
+        thread = threading.Thread(target=target, args=args, daemon=True)
+        self._process_threads.append(thread)
+        thread.start()
 
     def _build_chord_panel(self, title: str, css: str) -> tuple[Gtk.Box, Gtk.Box]:
         panel = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=5)
@@ -784,6 +793,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.processing_elapsed.set_visible(False)
         status_stack.append(self.processing_elapsed)
         self.status_card.append(status_stack)
+        self.cancel_analysis_button = icon_button("Cancelar análisis", "window-close-symbolic", "cancel-action")
+        self.cancel_analysis_button.set_visible(False)
+        self.cancel_analysis_button.connect("clicked", self._cancel_analysis)
+        self.status_card.append(self.cancel_analysis_button)
         self.status_pill = label("ESPERANDO AUDIO", "status-pill pending")
         self.status_card.append(self.status_pill)
         content.append(self.status_card)
@@ -878,7 +891,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.progress.set_fraction(0.0)
         self._set_status("Descargando audio", "La descarga se procesa localmente para esta sesión", "DESCARGANDO")
         self.sidebar_status.set_text("Puedes cancelar la descarga en cualquier momento.")
-        threading.Thread(target=self._youtube_worker, args=(url,), daemon=True).start()
+        self._launch_process_worker(self._youtube_worker, (url,))
 
     def _youtube_worker(self, url: str) -> None:
         try:
@@ -938,9 +951,16 @@ class MainWindow(Gtk.ApplicationWindow):
     def _load_audio(self, path: str | None, *, keep_youtube_temp: bool = False) -> None:
         if not path:
             return
+        if self.analysis_cancel_event:
+            self.analysis_cancel_event.set()
+        self._probe_generation += 1
+        probe_generation = self._probe_generation
+        analysis_cancel_event = threading.Event()
+        self.analysis_cancel_event = analysis_cancel_event
         if not keep_youtube_temp:
             self._cleanup_youtube_temp()
         self.input_path = Path(path).expanduser().resolve()
+        self.audio_info = None
         self.audio_analysis = None
         self.harmony_chart = None
         self.harmony_candidates = ()
@@ -957,23 +977,67 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_chord_panels(None)
         self.progress.set_visible(True)
         self.progress.set_fraction(0.0)
+        self.cancel_analysis_button.set_visible(True)
+        self.cancel_analysis_button.set_sensitive(True)
         self._set_status("Analizando audio", "Comprobando duración, formato, canales y análisis armónico", "ANALIZANDO", pending=True)
         self._start_processing_clock()
-        threading.Thread(target=self._probe_worker, args=(self.input_path,), daemon=True).start()
+        self._launch_process_worker(
+            self._probe_worker,
+            (self.input_path, analysis_cancel_event, probe_generation),
+        )
 
-    def _probe_worker(self, path: Path) -> None:
+    def _cancel_analysis(self, _button) -> None:
+        if not self.analysis_cancel_event:
+            return
+        self.analysis_cancel_event.set()
+        self.cancel_analysis_button.set_sensitive(False)
+        self._set_status("Cancelando análisis", "Deteniendo FFmpeg y descartando el resultado parcial…", "CANCELANDO", pending=True)
+        self.sidebar_status.set_text("Cancelando el análisis de esta canción…")
+
+    def _probe_worker(self, path: Path, cancel_event: threading.Event, generation: int) -> None:
         try:
-            info = self.engine.probe(path)
+            info = self.engine.probe(path, cancel_event=cancel_event)
+            if cancel_event.is_set():
+                raise AnalysisCancelled("Análisis cancelado por el usuario.")
             analysis = None
             try:
-                analysis = analyze_audio(path)
+                analysis = analyze_audio(path, cancel_event=cancel_event)
+            except AnalysisCancelled:
+                raise
             except (AnalysisError, OSError, ValueError):
                 pass
-            GLib.idle_add(self._probe_success, info, analysis)
+            if cancel_event.is_set():
+                raise AnalysisCancelled("Análisis cancelado por el usuario.")
+            GLib.idle_add(self._probe_success, info, analysis, generation)
+        except (AnalysisCancelled, SeparationCancelled) as exc:
+            GLib.idle_add(self._analysis_cancelled, generation, str(exc))
         except AudioEngineError as exc:
-            GLib.idle_add(self._operation_error, str(exc))
+            GLib.idle_add(self._analysis_error, generation, str(exc))
 
-    def _probe_success(self, info, analysis: AudioAnalysis | None = None) -> bool:
+    def _analysis_error(self, generation: int, detail: str) -> bool:
+        if generation != self._probe_generation or self._closing:
+            return False
+        self.analysis_cancel_event = None
+        self.cancel_analysis_button.set_visible(False)
+        return self._operation_error(detail)
+
+    def _analysis_cancelled(self, generation: int, detail: str) -> bool:
+        if generation != self._probe_generation or self._closing:
+            return False
+        self.analysis_cancel_event = None
+        self._stop_processing_clock()
+        self.progress.set_visible(False)
+        self.cancel_analysis_button.set_visible(False)
+        self._set_status("Análisis cancelado", detail, "CANCELADO", pending=True)
+        self.sidebar_status.set_text("Carga otro audio o vuelve a seleccionarlo para analizarlo.")
+        self._update_start_state()
+        return False
+
+    def _probe_success(self, info, analysis: AudioAnalysis | None = None, generation: int | None = None) -> bool:
+        if self._closing or (generation is not None and generation != self._probe_generation):
+            return False
+        self.analysis_cancel_event = None
+        self.cancel_analysis_button.set_visible(False)
         self.audio_info = info
         self.audio_analysis = analysis
         self._stop_processing_clock()
@@ -1059,7 +1123,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_status("Preparando separación", "Demucs 6s se ejecuta únicamente en este equipo", "PROCESANDO")
         self._start_processing_clock()
         self.sidebar_status.set_text("Puedes cancelar; se eliminarán los archivos parciales.")
-        threading.Thread(target=self._separation_worker, daemon=True).start()
+        self._launch_process_worker(self._separation_worker)
 
     def _separation_worker(self) -> None:
         try:
@@ -1236,11 +1300,12 @@ class MainWindow(Gtk.ApplicationWindow):
             self.header_split_button.set_sensitive(False)
         self.export_button.set_sensitive(False)
         self.export_stems_button.set_sensitive(False)
+        self.cancel_event = threading.Event()
         self.progress.set_visible(True)
         self.progress.set_fraction(0.0)
         title = "Exportando pista MP3" if single else "Exportando pistas MP3"
         self._set_status(title, "Preparando archivos MP3 sin alterar los WAV internos", "EXPORTANDO")
-        threading.Thread(target=self._stems_export_worker, args=(stems,), daemon=True).start()
+        self._launch_process_worker(self._stems_export_worker, (stems,))
 
     def _export_track(self, index: int) -> None:
         if index < 0 or index >= len(self.track_states):
@@ -1270,6 +1335,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.audio_info.sample_rate,
                 self.audio_info.channels,
                 progress=lambda value, phase: GLib.idle_add(self._operation_progress, value, phase),
+                cancel_event=self.cancel_event,
             )
             GLib.idle_add(self._stems_export_success, paths)
         except AudioEngineError as exc:
@@ -1279,6 +1345,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _stems_export_success(self, paths: tuple[Path, ...]) -> bool:
         self._busy = False
+        self.cancel_event = None
         self.progress.set_visible(False)
         self.youtube_button.set_sensitive(True)
         self.export_button.set_sensitive(True)
@@ -1293,6 +1360,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _stems_export_error(self, detail: str) -> bool:
         self._busy = False
+        self.cancel_event = None
         self.progress.set_visible(False)
         self.youtube_button.set_sensitive(True)
         self.export_button.set_sensitive(bool(self.result))
@@ -1305,12 +1373,13 @@ class MainWindow(Gtk.ApplicationWindow):
         if not self.result or self._busy:
             return
         self._busy = True
+        self.cancel_event = threading.Event()
         self.export_button.set_sensitive(False)
         self.export_stems_button.set_sensitive(False)
         self.progress.set_visible(True)
         self.progress.set_fraction(0)
         self._set_status("Exportando mezcla", "Aplicando volumen, mute y solo offline", "EXPORTANDO")
-        threading.Thread(target=self._mix_worker, daemon=True).start()
+        self._launch_process_worker(self._mix_worker)
 
     def _mix_worker(self) -> None:
         try:
@@ -1320,6 +1389,7 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.audio_info.sample_rate,
                 self.audio_info.channels,
                 progress=lambda value, phase: GLib.idle_add(self._operation_progress, value, phase),
+                cancel_event=self.cancel_event,
             )
             GLib.idle_add(self._mix_success, output, warning)
         except AudioEngineError as exc:
@@ -1327,6 +1397,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
     def _mix_success(self, output: Path, warning: str | None) -> bool:
         self._busy = False
+        self.cancel_event = None
         self.progress.set_visible(False)
         self.export_button.set_sensitive(True)
         self.export_stems_button.set_sensitive(True)
@@ -1431,7 +1502,20 @@ class MainWindow(Gtk.ApplicationWindow):
         return True
 
     def close_request(self) -> bool:
+        self._closing = True
+        if self.analysis_cancel_event:
+            self.analysis_cancel_event.set()
+        if self.cancel_event:
+            self.cancel_event.set()
+        self._stop_processing_clock()
         self.player.close()
+        deadline = time.monotonic() + 3.0
+        for thread in self._process_threads:
+            remaining = deadline - time.monotonic()
+            if remaining <= 0:
+                break
+            if thread.is_alive():
+                thread.join(remaining)
         self._cleanup_youtube_temp()
         return super().close_request()
 

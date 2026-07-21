@@ -7,7 +7,9 @@ import hashlib
 import json
 import os
 import re
+import select
 import shutil
+import signal
 import subprocess
 import sys
 import tempfile
@@ -70,6 +72,18 @@ class YoutubeDownloadResult:
 
 ProgressCallback = Callable[[float, str], None]
 
+
+def _signal_process_tree(process: subprocess.Popen, *, force: bool = False) -> None:
+    signal_value = signal.SIGKILL if force else signal.SIGTERM
+    try:
+        os.killpg(os.getpgid(process.pid), signal_value)
+    except (ProcessLookupError, PermissionError):
+        try:
+            (process.kill if force else process.terminate)()
+        except ProcessLookupError:
+            pass
+
+
 MODEL_NAME = "htdemucs_6s"
 STEM_ORDER = ("vocals", "drums", "bass", "guitar", "piano", "other")
 STEM_LABELS = {
@@ -82,20 +96,53 @@ STEM_LABELS = {
 }
 
 
-def _run(command: list[str], *, capture_output: bool = True) -> subprocess.CompletedProcess[str]:
+def _run(command: list[str], *, capture_output: bool = True, cancel_event=None) -> subprocess.CompletedProcess[str]:
+    if cancel_event is None:
+        try:
+            return subprocess.run(
+                command,
+                check=False,
+                text=True,
+                capture_output=capture_output,
+                encoding="utf-8",
+                errors="replace",
+            )
+        except FileNotFoundError as exc:
+            raise AudioEngineError(
+                "No encuentro FFmpeg. Instala ffmpeg y vuelve a abrir Split Tracks."
+            ) from exc
+
+    if cancel_event.is_set():
+        raise SeparationCancelled("Operación cancelada por el usuario.")
     try:
-        return subprocess.run(
+        process = subprocess.Popen(
             command,
-            check=False,
+            stdout=subprocess.PIPE if capture_output else None,
+            stderr=subprocess.PIPE if capture_output else None,
             text=True,
-            capture_output=capture_output,
             encoding="utf-8",
             errors="replace",
+            start_new_session=True,
         )
     except FileNotFoundError as exc:
         raise AudioEngineError(
             "No encuentro FFmpeg. Instala ffmpeg y vuelve a abrir Split Tracks."
         ) from exc
+
+    while True:
+        try:
+            stdout, stderr = process.communicate(timeout=0.2)
+            return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+        except subprocess.TimeoutExpired:
+            if not cancel_event.is_set():
+                continue
+            _signal_process_tree(process)
+            try:
+                process.communicate(timeout=2)
+            except subprocess.TimeoutExpired:
+                _signal_process_tree(process, force=True)
+                process.communicate()
+            raise SeparationCancelled("Operación cancelada por el usuario.")
 
 
 def _safe_name(value: str) -> str:
@@ -116,7 +163,7 @@ class SeparationEngine:
 
     mp3_bitrate = "320k"
 
-    def probe(self, path: str | Path) -> AudioInfo:
+    def probe(self, path: str | Path, cancel_event=None) -> AudioInfo:
         audio_path = Path(path).expanduser().resolve()
         if not audio_path.is_file():
             raise AudioEngineError("El archivo de audio ya no está disponible.")
@@ -131,7 +178,8 @@ class SeparationEngine:
                 "-of",
                 "json",
                 str(audio_path),
-            ]
+            ],
+            cancel_event=cancel_event,
         )
         if result.returncode != 0:
             raise AudioEngineError(
@@ -205,18 +253,34 @@ class SeparationEngine:
             encoding="utf-8",
             errors="replace",
             bufsize=1,
+            start_new_session=True,
         )
         output_lines: list[str] = []
         try:
             assert process.stdout is not None
-            for raw_line in process.stdout:
+            stream = process.stdout
+            while True:
+                if cancel_event is not None and cancel_event.is_set():
+                    _signal_process_tree(process)
+                    try:
+                        process.wait(timeout=5)
+                    except subprocess.TimeoutExpired:
+                        _signal_process_tree(process, force=True)
+                        process.wait()
+                    raise SeparationCancelled("Descarga cancelada. No se ha conservado el archivo temporal.")
+                ready, _, _ = select.select([stream], [], [], 0.2)
+                if not ready:
+                    if process.poll() is not None:
+                        break
+                    continue
+                raw_line = stream.readline()
+                if not raw_line:
+                    if process.poll() is not None:
+                        break
+                    continue
                 line = raw_line.strip()
                 if line:
                     output_lines.append(line)
-                if cancel_event is not None and cancel_event.is_set():
-                    process.terminate()
-                    process.wait(timeout=5)
-                    raise SeparationCancelled("Descarga cancelada. No se ha conservado el archivo temporal.")
                 match = re.search(r"\[download\]\s+(\d+(?:\.\d+)?)%", line)
                 if match and progress:
                     percent = float(match.group(1)) / 100
@@ -226,7 +290,7 @@ class SeparationEngine:
             shutil.rmtree(temporary_dir, ignore_errors=True)
             raise
         except Exception:
-            process.kill()
+            _signal_process_tree(process, force=True)
             process.wait()
             shutil.rmtree(temporary_dir, ignore_errors=True)
             raise
@@ -295,7 +359,7 @@ class SeparationEngine:
         progress: ProgressCallback | None = None,
         cancel_event=None,
     ) -> SeparationResult:
-        info = self.probe(input_path)
+        info = self.probe(input_path, cancel_event=cancel_event)
         selected = set(selected_categories) & set(STEM_ORDER)
         if not selected:
             raise AudioEngineError("Selecciona al menos una pista para separar.")
@@ -349,22 +413,34 @@ class SeparationEngine:
             errors="replace",
             bufsize=1,
             env={**os.environ, "PYTHONUNBUFFERED": "1"},
+            start_new_session=True,
         )
         output_lines: list[str] = []
         try:
             assert process.stdout is not None
-            for raw_line in process.stdout:
-                line = raw_line.strip()
-                if line:
-                    output_lines.append(line)
+            stream = process.stdout
+            while True:
                 if cancel_event is not None and cancel_event.is_set():
-                    process.terminate()
+                    _signal_process_tree(process)
                     try:
                         process.wait(timeout=5)
                     except subprocess.TimeoutExpired:
-                        process.kill()
+                        _signal_process_tree(process, force=True)
                         process.wait()
                     raise SeparationCancelled("Separación cancelada. No se han conservado archivos parciales.")
+                ready, _, _ = select.select([stream], [], [], 0.2)
+                if not ready:
+                    if process.poll() is not None:
+                        break
+                    continue
+                raw_line = stream.readline()
+                if not raw_line:
+                    if process.poll() is not None:
+                        break
+                    continue
+                line = raw_line.strip()
+                if line:
+                    output_lines.append(line)
                 match = re.search(r"(?:^|\s)(\d{1,3})%", line)
                 if match and progress:
                     percent = min(100, int(match.group(1))) / 100
@@ -374,7 +450,7 @@ class SeparationEngine:
             shutil.rmtree(folder, ignore_errors=True)
             raise
         except Exception:
-            process.kill()
+            _signal_process_tree(process, force=True)
             process.wait()
             shutil.rmtree(folder, ignore_errors=True)
             raise
@@ -404,7 +480,7 @@ class SeparationEngine:
         other_output = folder / "Other.wav"
         if progress:
             progress(0.88, "Preparando Other")
-        self._render_audio(tuple(complement_inputs), other_output, info.sample_rate, info.channels)
+        self._render_audio(tuple(complement_inputs), other_output, info.sample_rate, info.channels, cancel_event=cancel_event)
         final_stems.append(StemFile("Other", other_output, STEM_LABELS["other"][2], "complemento de las pistas no seleccionadas"))
         shutil.rmtree(raw_dir, ignore_errors=True)
 
@@ -476,7 +552,7 @@ class SeparationEngine:
             return "No se pudo descargar el modelo Demucs. Comprueba la conexión y vuelve a intentarlo."
         return "Demucs no pudo completar la separación. Revisa el audio o prueba con una mezcla más corta."
 
-    def _render_audio(self, inputs: tuple[Path, ...], output: Path, sample_rate: int, channels: int) -> None:
+    def _render_audio(self, inputs: tuple[Path, ...], output: Path, sample_rate: int, channels: int, cancel_event=None) -> None:
         if len(inputs) == 1:
             command = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", str(inputs[0])]
             filter_args: list[str] = []
@@ -493,7 +569,7 @@ class SeparationEngine:
             ]
         command.extend(filter_args)
         command.extend(["-ar", str(sample_rate), "-ac", str(channels), *self._codec_args(output), str(output)])
-        result = _run(command)
+        result = _run(command, cancel_event=cancel_event)
         if result.returncode != 0 or not output.is_file() or output.stat().st_size < 1024:
             raise AudioEngineError(f"No se pudo preparar la pista {output.name}.")
 
@@ -566,11 +642,12 @@ class SeparationEngine:
         destination: str | Path,
         sample_rate: int,
         channels: int,
+        cancel_event=None,
     ) -> Path:
         destination_path = Path(destination).expanduser().resolve()
         destination_path.mkdir(parents=True, exist_ok=True)
         output = destination_path / f"{_safe_name(Path(stem['name']).stem)}.mp3"
-        self._render_audio((Path(stem["path"]),), output, sample_rate, channels)
+        self._render_audio((Path(stem["path"]),), output, sample_rate, channels, cancel_event=cancel_event)
         return output
 
     def export_stems_mp3(
@@ -580,13 +657,14 @@ class SeparationEngine:
         sample_rate: int,
         channels: int,
         progress: ProgressCallback | None = None,
+        cancel_event=None,
     ) -> tuple[Path, ...]:
         stem_list = list(stems)
         if not stem_list:
             raise AudioEngineError("No hay pistas disponibles para exportar.")
         outputs: list[Path] = []
         for index, stem in enumerate(stem_list):
-            output = self.export_stem_mp3(stem, destination, sample_rate, channels)
+            output = self.export_stem_mp3(stem, destination, sample_rate, channels, cancel_event=cancel_event)
             outputs.append(output)
             if progress:
                 progress((index + 1) / len(stem_list), f"Exportando {stem['name']} MP3")
@@ -599,6 +677,7 @@ class SeparationEngine:
         sample_rate: int,
         channels: int,
         progress: ProgressCallback | None = None,
+        cancel_event=None,
     ) -> tuple[Path, str | None]:
         stem_list = list(stems)
         solo_exists = any(item.get("solo", False) for item in stem_list)
@@ -639,11 +718,11 @@ class SeparationEngine:
         ]
         if progress:
             progress(0.12, "Mezclando las pistas sincrónicamente")
-        result = _run(command)
+        result = _run(command, cancel_event=cancel_event)
         if result.returncode != 0 or not output.is_file():
             raise AudioEngineError("No se pudo exportar la mezcla MP3.")
         warning = None
-        peak = self._max_volume(output)
+        peak = self._max_volume(output, cancel_event=cancel_event)
         if peak is not None and peak > 0:
             warning = f"La mezcla alcanza {peak:+.1f} dBFS y puede recortar; se ha exportado sin normalizar."
         if progress:
@@ -653,9 +732,10 @@ class SeparationEngine:
     def _has_audio_signal(self, path: Path) -> bool:
         return self._max_volume(path) is not None
 
-    def _max_volume(self, path: Path) -> float | None:
+    def _max_volume(self, path: Path, cancel_event=None) -> float | None:
         result = _run(
             ["ffmpeg", "-hide_banner", "-i", str(path), "-af", "volumedetect", "-f", "null", "-"],
+            cancel_event=cancel_event,
         )
         text = result.stderr or result.stdout
         match = re.search(r"max_volume:\s*(-?\d+(?:\.\d+)?)\s*dB", text)

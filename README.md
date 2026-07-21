@@ -21,6 +21,8 @@ No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una 
 Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un panel de métricas con tonalidad destacada, BPM, duración, escala, LUFS, dinámica, formato, muestreo, canales, estabilidad del tempo, confianza tonal y el número de acordes de la fuente humana seleccionada. Los acordes y grados se muestran en cuatro columnas para facilitar la lectura.
 Los botones `−`, `+` y `Original` de `Transponer análisis` son el único control de tonalidad: cambian la preescucha en vivo manteniendo el tempo y actualizan los acordes y grados mostrados.
 
+Mientras se comprueba un audio aparece el botón "Cancelar análisis". Ese botón detiene los procesos auxiliares de FFmpeg, descarta los resultados parciales y deja la interfaz lista para seleccionar otro archivo. Si se cierra la ventana durante una descarga, análisis, separación o exportación, la aplicación solicita la cancelación de esos workers y espera brevemente a que terminen antes de salir, evitando dejar FFmpeg, yt-dlp o Demucs ejecutándose en segundo plano.
+
 El detector de acordes por audio queda disponible solo como diagnóstico opcional; no se usa como fuente canónica ni se ejecuta durante la carga normal. La aplicación usa ahora un cifrado humano seleccionado por el usuario, que conserva secciones, orden y cambios de acorde publicados.
 
 ### Acordes de fuentes humanas
