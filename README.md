@@ -16,6 +16,14 @@ La calidad depende mucho de la mezcla de origen. En canciones con bajo muy compr
 
 No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una aplicación de uso personal.
 
+## Análisis musical local
+
+Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un resumen con BPM, tonalidad, LUFS y dinámica, además de un espectro compacto. También estima una progresión de triadas mayores y menores por segmentos de aproximadamente uno o dos segundos, mostrando los acordes y sus grados en cuatro columnas para facilitar la lectura.
+
+La detección de acordes es deliberadamente local y prudente: usa perfiles de chroma y plantillas de triadas, aplica suavizado temporal para descartar cambios aislados de baja confianza y reconoce patrones repetidos de mezcla modal como I–III–IV–iv. No consulta webs ni presenta una transcripción como exacta. Las páginas de acordes pueden elegir nombres distintos para una misma sonoridad —por inversión, extensiones o simplificación—, así que la mejor validación sigue siendo escuchar el segmento y contrastarlo con el instrumento.
+
+La cabecera concentra ahora la URL de YouTube, la apertura de archivos locales, los accesos rápidos de extracción por stem y el botón Separar; las tarjetas laterales siguen disponibles para revisar la selección con detalle.
+
 ## Ejecutar en Ubuntu 24.04.4 LTS
 
 Dependencias del sistema:
@@ -58,7 +66,7 @@ Cada sesión genera `INFORME.md` y `PROVENANCE.json` con el modelo, categorías,
 ## Verificación rápida
 
 ```bash
-python3 -m py_compile app.py engine.py player.py
+python3 -m py_compile app.py analysis.py engine.py player.py
 ./.venv/bin/python -c "import torch, torchaudio, demucs; print(torch.__version__, torch.cuda.is_available())"
 ```
 
