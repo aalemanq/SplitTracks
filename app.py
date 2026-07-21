@@ -63,6 +63,13 @@ def ui_asset(name: str, size: int = 18, css: str | None = None) -> Gtk.Image:
     return image
 
 
+def centered_image(image: Gtk.Image) -> Gtk.Image:
+    image.set_hexpand(True)
+    image.set_halign(Gtk.Align.CENTER)
+    image.set_valign(Gtk.Align.CENTER)
+    return image
+
+
 def icon_button(text: str, icon_name: str, css: str = "secondary-action") -> Gtk.Button:
     button = Gtk.Button()
     button.add_css_class(css)
@@ -151,7 +158,7 @@ class TrackRow(Gtk.Box):
         icon_badge = Gtk.Box()
         icon_badge.add_css_class("track-icon-badge")
         icon_badge.add_css_class(TRACK_CLASSES.get(stem["name"], "track-other"))
-        icon_badge.append(ui_asset(TRACK_ASSETS.get(stem["name"], "other.svg"), 18))
+        icon_badge.append(centered_image(ui_asset(TRACK_ASSETS.get(stem["name"], "other.svg"), 18)))
         self.append(icon_badge)
 
         info = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
@@ -244,13 +251,14 @@ class MainWindow(Gtk.ApplicationWindow):
         brand = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=11)
         mark = Gtk.Box()
         mark.add_css_class("brand-mark")
-        mark.append(ui_asset("logo.svg", 31))
+        mark.append(centered_image(ui_asset("logo.svg", 31)))
         brand.append(mark)
         titles = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=1)
         titles.append(label(APP_NAME, "brand-title"))
         titles.append(label("SEPARACIÓN MULTISTEM LOCAL", "brand-subtitle"))
         brand.append(titles)
-        header.set_title_widget(brand)
+        brand.set_halign(Gtk.Align.START)
+        header.pack_start(brand)
 
         local = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=7)
         local.add_css_class("header-status")
@@ -378,7 +386,7 @@ class MainWindow(Gtk.ApplicationWindow):
             category.set_hexpand(True)
             icon_badge = Gtk.Box()
             icon_badge.add_css_class("category-icon-badge")
-            icon_badge.append(ui_asset(CATEGORY_ASSETS[key], 21))
+            icon_badge.append(centered_image(ui_asset(CATEGORY_ASSETS[key], 21)))
             category.append(icon_badge)
             copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
             copy.set_hexpand(True)
@@ -401,7 +409,7 @@ class MainWindow(Gtk.ApplicationWindow):
         other_card.add_css_class("category-other")
         other_icon = Gtk.Box()
         other_icon.add_css_class("category-icon-badge")
-        other_icon.append(ui_asset("other.svg", 21))
+        other_icon.append(centered_image(ui_asset("other.svg", 21)))
         other_card.append(other_icon)
         other_copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
         other_copy.set_hexpand(True)
@@ -486,7 +494,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.status_card.add_css_class("status-card")
         status_mark = Gtk.Box()
         status_mark.add_css_class("status-mark")
-        status_mark.append(ui_icon("audio-x-generic-symbolic", 19))
+        status_mark.append(centered_image(ui_icon("audio-x-generic-symbolic", 19)))
         self.status_card.append(status_mark)
         status_stack = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=3)
         status_stack.set_hexpand(True)
