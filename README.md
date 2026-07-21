@@ -6,7 +6,13 @@ Aplicación de escritorio para Ubuntu que descarga audio de YouTube o carga una 
 
 Split Tracks usa el modelo local `htdemucs_6s` de Demucs 4.1.0. Genera `Voces`, `Batería completa`, `Bajo`, `Guitarra`, `Piano y teclados` y `Other`. El modelo trabaja internamente a 44,1 kHz; Split Tracks convierte las salidas al muestreo y número de canales de la entrada antes de guardarlas como MP3 a 320 kbps.
 
-`Other` siempre se genera como complemento: suma el `Other` del modelo y todas las categorías que no hayas seleccionado. Las salidas de piano y guitarra pueden contener más filtración que voces, batería o bajo; es una limitación conocida de `htdemucs_6s`.
+`Other` siempre se genera como complemento: suma el `Other` del modelo y todas las categorías que no hayas seleccionado. Las salidas de piano y guitarra pueden contener más filtración que voces, batería o bajo; además, el bajo puede perder presencia cuando comparte frecuencias con el bombo, sintetizadores o instrumentos graves. Son limitaciones conocidas de `htdemucs_6s`, no un recorte aplicado por la interfaz: cuando seleccionas Bajo, la aplicación exporta directamente el `bass.wav` generado por el modelo.
+
+### Estado del modelo
+
+La aplicación mantiene `htdemucs_6s` como modelo predeterminado porque es el que permite conservar las seis categorías en una sola separación. Se comparó con el modelo estándar `htdemucs` en una mezcla real y el nivel de graves fue prácticamente equivalente; el modelo estándar no ofreció una mejora suficientemente clara para sustituirlo y tampoco genera piano ni guitarra. `htdemucs_ft` queda como posible modo de calidad futuro: puede mejorar ligeramente los cuatro stems principales, pero requiere bastante más tiempo de CPU.
+
+La calidad depende mucho de la mezcla de origen. En canciones con bajo muy comprimido, distorsionado, sintetizado, paneado o solapado con el bombo pueden faltar notas o aparecer parte del bajo en `Other`. Subir el volumen del stem puede mejorar la escucha cuando el bajo sí está presente, pero no puede recuperar información que el modelo no haya separado.
 
 No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una aplicación de uso personal.
 
@@ -62,4 +68,4 @@ La separación actual necesita una mezcla estéreo de dos canales. La preescucha
 
 - Demucs: https://github.com/facebookresearch/demucs
 - Modelo `htdemucs_6s`: seis fuentes (`drums`, `bass`, `other`, `vocals`, `piano`, `guitar`).
-- Demucs documenta que piano puede tener más artefactos; la interfaz no oculta esa limitación.
+- Demucs documenta que `htdemucs_6s` es experimental y que piano puede tener más artefactos; la interfaz no oculta esas limitaciones.

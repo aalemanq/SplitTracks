@@ -8,7 +8,7 @@
       "outputs": ["vocals", "drums", "bass", "guitar", "piano", "other"],
       "source": "https://github.com/facebookresearch/demucs",
       "cache": "~/.cache/torch and ~/.cache/huggingface",
-      "notes": "Piano and guitar may have more bleed/artifacts than the main four stems."
+      "notes": "Experimental six-source model. Piano and guitar may have more bleed/artifacts, and bass may lose presence when its low frequencies overlap with kick drums or synths."
     }
   ]
 }

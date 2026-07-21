@@ -626,7 +626,7 @@ class SeparationEngine:
             "## Notas",
             "",
             "`Other.mp3` se calcula sumando el stem Other del modelo y todas las categorías no seleccionadas. "
-            "Las salidas de guitarra y piano pueden contener más filtración que voces, batería o bajo; es una limitación conocida del modelo htdemucs_6s.",
+            "Las salidas de guitarra y piano pueden contener más filtración y el bajo puede perder presencia cuando comparte graves con bombo o sintetizadores; son limitaciones conocidas del modelo htdemucs_6s.",
             "",
             f"Resultados: `{folder}`",
         ]
