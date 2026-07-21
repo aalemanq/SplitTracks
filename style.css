@@ -1,396 +1,609 @@
-@define-color ink #f4f5f7;
-@define-color muted #9ba4b6;
-@define-color panel #171b24;
-@define-color panel-soft #1d2230;
-@define-color outline #2b3241;
-@define-color mint #9ef1cf;
-@define-color mint-strong #6ee0b0;
-@define-color coral #f4a7b9;
-@define-color blue #a6b8ff;
+@define-color canvas #002b36;
+@define-color sidebar #073642;
+@define-color surface #0a3b47;
+@define-color surface-soft #0d4652;
+@define-color surface-raised #104d59;
+@define-color line #1a5662;
+@define-color line-strong #2a6b74;
+@define-color ink #f5f0df;
+@define-color muted #93a1a1;
+@define-color dim #6f8789;
+@define-color cyan #2aa198;
+@define-color cyan-soft #183f45;
+@define-color green #859900;
+@define-color green-soft #263d31;
+@define-color yellow #b58900;
+@define-color yellow-soft #453a20;
+@define-color orange #cb4b16;
+@define-color orange-soft #4a3028;
+@define-color red #dc322f;
+@define-color red-soft #492b35;
+@define-color violet #6c71c4;
+@define-color violet-soft #302f53;
+@define-color blue #268bd2;
+@define-color blue-soft #173c56;
+@define-color magenta #d33682;
+@define-color magenta-soft #452a43;
 
 window {
-  background: #10131a;
+  background: @canvas;
   color: @ink;
 }
 
 headerbar {
-  min-height: 72px;
-  padding: 0 22px;
-  background: #12161e;
-  border-bottom: 1px solid @outline;
+  min-height: 66px;
+  padding: 0 20px;
+  background: @sidebar;
+  border: 0;
+  border-bottom: 1px solid @line;
+  color: @ink;
 }
 
 headerbar button {
-  border-radius: 10px;
+  min-width: 30px;
+  min-height: 30px;
+  padding: 0 7px;
+  border: 1px solid @line;
+  border-radius: 9px;
+  background: @surface;
   color: @muted;
 }
 
+headerbar button:hover {
+  border-color: @cyan;
+  background: @cyan-soft;
+  color: @ink;
+}
+
 .brand-mark {
-  min-width: 34px;
-  min-height: 34px;
+  min-width: 38px;
+  min-height: 38px;
   border-radius: 12px;
-  background: @mint;
-  color: #12161e;
-  font-size: 17px;
-  font-weight: 800;
+  background: @cyan;
+  color: @canvas;
 }
 
 .brand-title {
   color: @ink;
-  font-size: 16px;
-  font-weight: 700;
+  font-size: 17px;
+  font-weight: 850;
+  letter-spacing: 0.5px;
 }
 
 .brand-subtitle {
   color: @muted;
-  font-size: 11px;
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 1px;
+}
+
+.header-status {
+  min-height: 29px;
+  padding: 0 11px;
+  border: 1px solid @line-strong;
+  border-radius: 16px;
+  background: @surface;
+  color: @cyan;
+}
+
+.header-status-label {
+  color: @muted;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.6px;
+}
+
+.app-root,
+.workspace,
+.sidebar {
+  background: @canvas;
 }
 
 .sidebar {
-  background: #141820;
-  border-right: 1px solid @outline;
+  background: @sidebar;
+  border-right: 1px solid @line;
 }
 
-.sidebar-scroll {
+.sidebar-scroll,
+.workspace > scrolledwindow,
+.sidebar > scrolledwindow {
+  background: transparent;
+}
+
+.workspace {
+  background: @canvas;
+}
+
+.workspace-content {
   background: transparent;
 }
 
 .eyebrow {
-  color: @mint-strong;
+  color: @cyan;
   font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 1.1px;
+  font-weight: 850;
+  letter-spacing: 1.2px;
 }
 
 .page-title {
   color: @ink;
   font-size: 24px;
-  font-weight: 750;
+  font-weight: 850;
 }
 
-.page-subtitle, .helper {
+.page-subtitle,
+.helper {
   color: @muted;
   font-size: 12px;
   line-height: 1.45;
 }
 
 .card {
-  padding: 16px;
-  border: 1px solid @outline;
-  border-radius: 16px;
-  background: @panel;
+  padding: 15px;
+  border: 1px solid @line;
+  border-radius: 15px;
+  background: @surface;
 }
 
 .card-title {
   color: @ink;
   font-size: 13px;
-  font-weight: 700;
+  font-weight: 800;
 }
 
 .card-caption {
   color: @muted;
+  font-size: 10px;
+}
+
+button {
+  min-height: 32px;
+  padding: 0 11px;
+  border: 1px solid @line-strong;
+  border-radius: 9px;
+  background: @surface-raised;
+  color: @ink;
   font-size: 11px;
+  font-weight: 750;
+}
+
+button:hover {
+  border-color: @cyan;
+  background: @cyan-soft;
+}
+
+button:active {
+  background: @surface-soft;
+}
+
+button:disabled {
+  border-color: @line;
+  background: @surface;
+  color: @dim;
+}
+
+.button-label {
+  color: inherit;
+  font-size: 11px;
+  font-weight: 750;
+}
+
+button.primary-action {
+  min-height: 44px;
+  border: 0;
+  border-radius: 11px;
+  background: @green;
+  color: #f9f6e8;
+  font-size: 12px;
+  font-weight: 850;
+}
+
+button.primary-action:hover {
+  background: #9aaa16;
+}
+
+button.primary-action:disabled {
+  background: @surface-raised;
+  color: @dim;
+}
+
+button.secondary-action,
+button.compact-action,
+button.folder-button {
+  border-color: @line-strong;
+  background: @surface-raised;
+  color: @ink;
+}
+
+button.secondary-action:hover,
+button.compact-action:hover,
+button.folder-button:hover {
+  background: @cyan-soft;
+}
+
+button.compact-action {
+  min-height: 27px;
+  padding: 0 8px;
+  border-radius: 8px;
+  font-size: 10px;
+}
+
+button.folder-button {
+  min-height: 31px;
+  padding: 0 9px;
+}
+
+.source-card {
+  background: #083b46;
 }
 
 .drop-zone {
-  min-height: 128px;
-  padding: 16px;
-  border: 1px dashed #4e596e;
-  border-radius: 13px;
-  background: #1a202c;
+  min-height: 132px;
+  padding: 15px;
+  border: 1px dashed @line-strong;
+  border-radius: 12px;
+  background: #062f3a;
 }
 
 .drop-zone:hover {
-  border-color: @mint-strong;
-  background: #202a30;
+  border-color: @cyan;
+  background: @cyan-soft;
 }
 
-.drop-icon {
-  min-width: 40px;
-  min-height: 40px;
-  border-radius: 13px;
-  background: #293b39;
-  color: @mint;
-  font-size: 19px;
-  font-weight: 700;
+image.drop-icon {
+  color: @cyan;
 }
 
 .file-name {
   color: @ink;
   font-size: 13px;
-  font-weight: 650;
+  font-weight: 800;
 }
 
 .file-meta {
   color: @muted;
-  font-size: 11px;
+  font-size: 10px;
 }
 
-button.primary-action {
-  min-height: 46px;
-  border-radius: 12px;
-  background: @mint;
-  color: #12161e;
-  font-weight: 800;
-}
-
-button.primary-action:hover {
-  background: #b7f7dc;
-}
-
-button.secondary-action {
-  border: 1px solid @outline;
-  border-radius: 10px;
-  background: @panel-soft;
+.entry,
+entry {
+  min-height: 32px;
+  padding: 0 10px;
+  border: 1px solid @line-strong;
+  border-radius: 9px;
+  background: @canvas;
   color: @ink;
+  caret-color: @cyan;
 }
 
-button.secondary-action:hover {
-  border-color: #55637a;
-  background: #252c3b;
+entry:focus {
+  border-color: @cyan;
 }
 
-.folder-button {
-  min-height: 38px;
-  border: 1px solid @outline;
-  border-radius: 10px;
-  background: #1c212d;
-  color: @ink;
+.entry placeholder,
+entry placeholder {
+  color: @dim;
 }
 
 .status-card {
-  padding: 16px 18px;
-  border: 1px solid @outline;
-  border-radius: 15px;
-  background: #181e29;
+  min-height: 66px;
+  padding: 12px 14px;
+  border: 1px solid @line;
+  border-radius: 14px;
+  background: @surface;
+}
+
+.status-mark {
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 11px;
+  background: @cyan-soft;
+  color: @cyan;
 }
 
 .status-title {
   color: @ink;
   font-size: 14px;
-  font-weight: 700;
+  font-weight: 850;
 }
 
 .status-detail {
   color: @muted;
-  font-size: 12px;
+  font-size: 11px;
 }
 
 .status-pill {
-  padding: 6px 10px;
-  border-radius: 20px;
-  background: #20342f;
-  color: @mint;
-  font-size: 10px;
-  font-weight: 800;
+  padding: 6px 9px;
+  border-radius: 15px;
+  background: @green-soft;
+  color: #b5c95b;
+  font-size: 9px;
+  font-weight: 850;
+  letter-spacing: 0.6px;
 }
 
 .status-pill.pending {
-  background: #2a2d38;
+  background: @surface-raised;
   color: @muted;
 }
 
+progressbar {
+  min-height: 4px;
+}
+
+progressbar trough {
+  min-height: 4px;
+  border-radius: 4px;
+  background: @surface-raised;
+}
+
+progressbar progress {
+  min-height: 4px;
+  border-radius: 4px;
+  background: @cyan;
+}
+
+.tone-card {
+  padding: 13px 15px;
+  border: 1px solid @line;
+  border-radius: 14px;
+  background: @surface;
+}
+
+.tone-card image,
+.tone-value {
+  color: @cyan;
+}
+
+.tone-button {
+  min-width: 36px;
+  min-height: 33px;
+  padding: 0;
+  border: 1px solid @line-strong;
+  border-radius: 9px;
+  background: @surface-raised;
+  color: @ink;
+  font-size: 18px;
+  font-weight: 850;
+}
+
+.tone-button:hover {
+  border-color: @cyan;
+  background: @cyan-soft;
+  color: @cyan;
+}
+
+.tone-value {
+  font-size: 12px;
+  font-weight: 850;
+}
+
+.tone-card button.primary-action {
+  min-height: 33px;
+  padding: 0 12px;
+  border-radius: 9px;
+  font-size: 10px;
+}
+
 .wave-card {
-  padding: 18px;
-  border: 1px solid @outline;
-  border-radius: 16px;
-  background: #151a23;
+  padding: 15px 17px 12px;
+  border: 1px solid @line;
+  border-radius: 15px;
+  background: @surface;
 }
 
 .time-label {
   color: @muted;
-  font-size: 11px;
+  font-size: 10px;
   font-variant: tabular-nums;
 }
 
 scale trough {
   min-height: 5px;
   border-radius: 5px;
-  background: #303747;
+  background: @surface-raised;
 }
 
 scale highlight {
   border-radius: 5px;
-  background: @mint-strong;
+  background: @cyan;
 }
 
 scale slider {
-  min-width: 15px;
-  min-height: 15px;
-  border: 2px solid #10131a;
+  min-width: 14px;
+  min-height: 14px;
+  border: 2px solid @canvas;
   border-radius: 50%;
-  background: @mint;
+  background: @cyan;
+}
+
+.transport {
+  margin-top: 2px;
 }
 
 .transport button {
-  min-width: 38px;
-  min-height: 36px;
-  border-radius: 11px;
-  background: #252c3a;
+  min-width: 36px;
+  min-height: 34px;
+  padding: 0;
+  border-radius: 10px;
+  background: @surface-raised;
   color: @ink;
-  font-size: 15px;
 }
 
 .transport button.play-button {
-  min-width: 48px;
-  min-height: 42px;
-  border-radius: 13px;
-  background: @mint;
-  color: #10131a;
-  font-weight: 800;
+  min-width: 46px;
+  min-height: 38px;
+  border: 0;
+  border-radius: 11px;
+  background: @cyan;
+  color: @canvas;
+}
+
+.transport button.play-button:hover {
+  background: #43b8ae;
 }
 
 .section-heading {
   color: @ink;
-  font-size: 16px;
-  font-weight: 750;
+  font-size: 15px;
+  font-weight: 850;
 }
 
 .section-note {
   color: @muted;
+  font-size: 10px;
+}
+
+.extract-card {
+  background: @surface;
+}
+
+.category-card {
+  min-height: 61px;
+  padding: 8px 9px;
+  border: 1px solid @line;
+  border-radius: 11px;
+  background: @surface-soft;
+}
+
+.category-card:hover {
+  border-color: @line-strong;
+  background: @surface-raised;
+}
+
+.category-check {
+  color: @ink;
   font-size: 11px;
+  font-weight: 800;
+}
+
+.category-note {
+  color: @muted;
+  font-size: 9px;
+}
+
+.category-icon {
+  color: @cyan;
+}
+
+.category-vocals { background: @magenta-soft; }
+.category-drums { background: @orange-soft; }
+.category-bass { background: @blue-soft; }
+.category-guitar { background: @violet-soft; }
+.category-piano { background: @yellow-soft; }
+.category-other { background: @green-soft; }
+
+.category-vocals .category-icon { color: @magenta; }
+.category-drums .category-icon { color: @orange; }
+.category-bass .category-icon { color: @blue; }
+.category-guitar .category-icon { color: @violet; }
+.category-piano .category-icon { color: @yellow; }
+.category-other .category-icon { color: @green; }
+
+.folder-path {
+  color: #a9c66a;
+  font-size: 10px;
 }
 
 .track-row {
-  min-height: 74px;
-  padding: 10px 12px;
-  border: 1px solid @outline;
+  min-height: 68px;
+  padding: 9px 11px;
+  border: 1px solid @line;
   border-radius: 13px;
-  background: @panel;
+  background: @surface;
 }
 
 .track-row:hover {
-  background: #1d2330;
+  border-color: @line-strong;
+  background: @surface-raised;
 }
 
-.track-dot {
-  min-width: 9px;
-  min-height: 9px;
-  border-radius: 50%;
+.track-icon-badge {
+  min-width: 34px;
+  min-height: 34px;
+  border-radius: 11px;
 }
+
+.track-icon-badge image {
+  color: @ink;
+}
+
+.track-icon-badge.track-vocals { background: @magenta-soft; color: @magenta; }
+.track-icon-badge.track-drums { background: @orange-soft; color: @orange; }
+.track-icon-badge.track-bass { background: @blue-soft; color: @blue; }
+.track-icon-badge.track-guitar { background: @violet-soft; color: @violet; }
+.track-icon-badge.track-piano { background: @yellow-soft; color: @yellow; }
+.track-icon-badge.track-other { background: @green-soft; color: @green; }
 
 .track-name {
   color: @ink;
-  font-size: 13px;
-  font-weight: 700;
+  font-size: 12px;
+  font-weight: 850;
 }
 
 .track-kind {
   color: @muted;
-  font-size: 10px;
+  font-size: 9px;
 }
 
 .track-value {
   min-width: 42px;
   color: @muted;
-  font-size: 11px;
+  font-size: 10px;
   font-variant: tabular-nums;
 }
 
 .track-toggle {
-  min-width: 31px;
-  min-height: 28px;
+  min-width: 30px;
+  min-height: 27px;
   padding: 0;
-  border: 1px solid @outline;
+  border: 1px solid @line-strong;
   border-radius: 8px;
-  background: #202634;
+  background: @surface-raised;
   color: @muted;
   font-size: 10px;
-  font-weight: 800;
+  font-weight: 850;
 }
 
 .track-toggle:checked {
-  border-color: @coral;
-  background: #442a36;
-  color: @coral;
+  border-color: @red;
+  background: @red-soft;
+  color: #f08c84;
 }
 
 .track-toggle.solo:checked {
-  border-color: @blue;
-  background: #28334f;
-  color: @blue;
+  border-color: @violet;
+  background: @violet-soft;
+  color: #a7a9e8;
 }
 
 .empty-state {
-  min-height: 220px;
-  padding: 28px;
-  border: 1px dashed #394254;
-  border-radius: 16px;
-  background: #151a23;
+  min-height: 190px;
+  padding: 27px;
+  border: 1px dashed @line-strong;
+  border-radius: 15px;
+  background: @surface;
 }
 
 .empty-icon {
-  color: #77849d;
-  font-size: 32px;
+  color: @cyan;
 }
 
 .empty-title {
   color: @ink;
   font-size: 15px;
-  font-weight: 700;
+  font-weight: 850;
 }
 
 .empty-copy {
   color: @muted;
-  font-size: 12px;
-}
-
-.disabled-row {
-  opacity: 0.52;
+  font-size: 11px;
 }
 
 .license-note {
-  padding: 11px;
+  padding: 10px 11px;
   border-radius: 10px;
-  background: #20252f;
+  background: @surface;
   color: @muted;
-  font-size: 10px;
-}
-
-.folder-path {
-  color: @mint;
-  font-size: 11px;
-}
-
-.progress-text {
-  color: @muted;
-  font-size: 11px;
-}
-
-
-.tone-card {
-  padding: 14px 16px;
-  border: 1px solid @outline;
-  border-radius: 16px;
-  background: @panel;
-}
-
-.tone-button {
-  min-width: 38px;
-  min-height: 34px;
-  border: 1px solid @outline;
-  border-radius: 10px;
-  background: #202634;
-  color: @ink;
-  font-size: 18px;
-  font-weight: 800;
-}
-
-.tone-button:hover {
-  border-color: @mint-strong;
-  background: #283b38;
-  color: @mint;
-}
-
-.tone-card button.primary-action {
-  min-height: 34px;
-  padding: 0 13px;
-  border-radius: 10px;
-  font-size: 11px;
-}
-
-.tone-value {
-  color: @mint;
-  font-size: 13px;
-  font-weight: 750;
+  font-size: 9px;
 }
