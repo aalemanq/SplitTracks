@@ -18,7 +18,7 @@ No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una 
 
 ## Biblioteca local
 
-Los archivos de audio locales se mantienen en su ubicación original: Split Tracks no los mueve, copia ni elimina. Al analizarlos, la aplicación guarda una referencia y sus metadatos básicos en `~/.local/share/split-tracks/library.sqlite3` (o dentro de XDG_DATA_HOME si está configurada). Desde ahí se conservan los favoritos y el análisis musical de cada pista: BPM estimado, tonalidad/escala, LUFS integrados, pico, rango dinámico y un resumen del espectro. La aplicación solo guarda referencias y metadatos; no mueve, copia ni elimina el audio original. Los archivos descargados de YouTube siguen siendo temporales hasta que se implemente su almacenamiento persistente.
+Los archivos de audio locales se mantienen en su ubicación original: Split Tracks no los mueve, copia ni elimina. Al analizarlos, la aplicación guarda una referencia y sus metadatos básicos en `~/.local/share/split-tracks/library.sqlite3` (o dentro de XDG_DATA_HOME si está configurada). Desde ahí se conservan los favoritos y el análisis musical de cada pista: BPM estimado, tonalidad/escala, LUFS integrados, pico, rango dinámico y un resumen del espectro. La interfaz incluye búsqueda por título o ruta, filtro de favoritos y carga directa desde la ubicación original. La aplicación solo guarda referencias y metadatos; no mueve, copia ni elimina el audio original. Los archivos descargados de YouTube siguen siendo temporales hasta que se implemente su almacenamiento persistente.
 
 
 

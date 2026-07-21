@@ -17,7 +17,7 @@ from gi.repository import Gdk, Gio, GLib, GObject, Gtk
 
 from analysis import AnalysisError, AudioAnalysis, analyze_audio
 from engine import AudioEngineError, SeparationCancelled, SeparationEngine, SeparationResult, STEM_LABELS, STEM_ORDER
-from library import Library, LibraryError
+from library import Library, LibraryError, LibraryTrack
 from player import MixerPlayer
 
 
@@ -175,6 +175,85 @@ class SpectrumView(Gtk.DrawingArea):
             context.set_source_rgba(0.16, 0.72, 0.66, 0.82 if level > 0.12 else 0.42)
             context.rectangle(x, y, bar_width, bar_height)
             context.fill()
+
+
+class LibraryRow(Gtk.ListBoxRow):
+    def __init__(self, record: LibraryTrack, open_track, favorite_changed):
+        super().__init__()
+        self.record = record
+        self.open_track = open_track
+        self.favorite_changed = favorite_changed
+        self.add_css_class("library-row")
+        if not record.available:
+            self.add_css_class("missing")
+        self.set_activatable(record.available)
+
+        row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=9)
+        row.set_margin_start(2)
+        row.set_margin_end(2)
+        row.set_margin_top(2)
+        row.set_margin_bottom(2)
+
+        badge = Gtk.Box()
+        badge.add_css_class("library-icon-badge")
+        badge.add_css_class("track-other")
+        badge.set_size_request(32, 32)
+        badge.set_hexpand(False)
+        badge.set_vexpand(False)
+        badge.set_valign(Gtk.Align.CENTER)
+        if record.thumbnail_path and record.thumbnail_path.is_file():
+            artwork = Gtk.Image.new_from_file(str(record.thumbnail_path))
+            artwork.set_pixel_size(20)
+        else:
+            artwork = ui_icon("audio-x-generic-symbolic", 18)
+        badge.append(centered_image(artwork))
+        row.append(badge)
+
+        copy = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=2)
+        copy.set_hexpand(True)
+        copy.set_valign(Gtk.Align.CENTER)
+        title = label(record.title, "library-title")
+        title.set_ellipsize(3)
+        copy.append(title)
+
+        meta_parts = [record.format_name.upper() or "AUDIO", fmt_time(record.duration)]
+        if record.sample_rate:
+            meta_parts.append(f"{record.sample_rate / 1000:.1f} kHz")
+        analysis_parts: list[str] = []
+        if record.bpm is not None:
+            analysis_parts.append(f"BPM {record.bpm:.0f}")
+        if record.key_name and record.scale:
+            analysis_parts.append(f"{record.key_name} {record.scale}")
+        if record.lufs is not None:
+            analysis_parts.append(f"{record.lufs:.1f} LUFS")
+        meta = label(" · ".join(meta_parts), "library-meta")
+        copy.append(meta)
+        analysis = label(" · ".join(analysis_parts) if analysis_parts else "Sin análisis musical", "library-analysis")
+        analysis.set_ellipsize(3)
+        copy.append(analysis)
+        row.append(copy)
+
+        favorite = Gtk.ToggleButton()
+        favorite.add_css_class("library-favorite")
+        favorite.set_child(ui_icon("emblem-favorite-symbolic", 14))
+        favorite.set_active(record.favorite)
+        favorite.set_sensitive(record.available)
+        favorite.set_tooltip_text("Quitar de favoritos" if record.favorite else "Añadir a favoritos")
+        favorite.connect("toggled", self._on_favorite)
+        row.append(favorite)
+        self.favorite = favorite
+
+        self.set_child(row)
+        self.connect("activate", self._on_activate)
+
+    def _on_activate(self, _row) -> None:
+        if self.record.available:
+            self.open_track(self.record)
+
+    def _on_favorite(self, button) -> None:
+        favorite = button.get_active()
+        button.set_tooltip_text("Quitar de favoritos" if favorite else "Añadir a favoritos")
+        self.favorite_changed(self.record.track_id, favorite)
 
 
 class TrackRow(Gtk.Box):
@@ -349,6 +428,118 @@ class MainWindow(Gtk.ApplicationWindow):
         card.add_css_class("card")
         return card
 
+    def _build_library_card(self) -> Gtk.Box:
+        card = self._card()
+        card.add_css_class("library-card")
+
+        header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
+        header.append(label("04  ·  BIBLIOTECA", "eyebrow"))
+        self.library_count = label("", "section-note")
+        self.library_count.set_hexpand(True)
+        self.library_count.set_xalign(1)
+        header.append(self.library_count)
+        card.append(header)
+
+        search_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=7)
+        self.library_search = Gtk.SearchEntry()
+        self.library_search.set_placeholder_text("Buscar por título o ruta…")
+        self.library_search.set_hexpand(True)
+        self.library_search.connect("search-changed", lambda *_: self._refresh_library())
+        search_row.append(self.library_search)
+        self.library_favorites = Gtk.ToggleButton()
+        self.library_favorites.add_css_class("library-filter")
+        self.library_favorites.set_child(ui_icon("emblem-favorite-symbolic", 14))
+        self.library_favorites.set_tooltip_text("Mostrar solo favoritos")
+        self.library_favorites.connect("toggled", lambda *_: self._refresh_library())
+        search_row.append(self.library_favorites)
+        card.append(search_row)
+
+        self.library_list = Gtk.ListBox()
+        self.library_list.add_css_class("library-list")
+        self.library_list.set_selection_mode(Gtk.SelectionMode.NONE)
+        library_scroll = Gtk.ScrolledWindow()
+        library_scroll.set_policy(Gtk.PolicyType.NEVER, Gtk.PolicyType.AUTOMATIC)
+        library_scroll.set_size_request(-1, 205)
+        library_scroll.set_child(self.library_list)
+        card.append(library_scroll)
+
+        self.library_status = label("", "card-caption", wrap=True)
+        card.append(self.library_status)
+        self._refresh_library()
+        return card
+
+    def _refresh_library(self) -> None:
+        if not hasattr(self, "library_list"):
+            return
+        while child := self.library_list.get_first_child():
+            self.library_list.remove(child)
+        if self.library is None:
+            self.library_count.set_text("")
+            self.library_status.set_text("Biblioteca no disponible en esta sesión.")
+            return
+        try:
+            records = self.library.list_tracks()
+        except LibraryError as exc:
+            self.library_count.set_text("")
+            self.library_status.set_text(f"No se puede leer la biblioteca: {exc}")
+            return
+        query = self.library_search.get_text().strip().casefold()
+        favorites_only = self.library_favorites.get_active()
+        filtered = [
+            record
+            for record in records
+            if (not favorites_only or record.favorite)
+            and (
+                not query
+                or query in record.title.casefold()
+                or query in str(record.path).casefold()
+            )
+        ]
+        favorite_count = sum(1 for record in records if record.favorite)
+        self.library_count.set_text(f"{len(filtered)} pistas · {favorite_count} favoritas")
+        for record in filtered:
+            self.library_list.append(
+                LibraryRow(record, self._library_open_track, self._library_favorite_changed)
+            )
+        if not filtered:
+            empty_row = Gtk.ListBoxRow()
+            empty_row.set_selectable(False)
+            empty_row.add_css_class("library-empty")
+            message = "No hay favoritos que coincidan." if favorites_only else "Aún no hay audios locales guardados."
+            empty_row.set_child(label(message, "card-caption", wrap=True))
+            self.library_list.append(empty_row)
+            self.library_status.set_text(
+                "Carga un archivo local para añadirlo automáticamente a la biblioteca."
+                if not records
+                else "Prueba otra búsqueda o desactiva el filtro de favoritos."
+            )
+        else:
+            self.library_status.set_text("Pulsa una pista para volver a cargarla desde su ubicación original.")
+
+    def _library_open_track(self, record: LibraryTrack) -> None:
+        if not record.available:
+            self._set_status("Archivo no disponible", str(record.path), "REVISAR", pending=True)
+            return
+        self._load_audio(str(record.path))
+        self.sidebar_status.set_text(f"Cargado desde la biblioteca: {record.title}")
+
+    def _library_favorite_changed(self, track_id: str, favorite: bool) -> None:
+        if self.library is None:
+            return
+        try:
+            self.library.set_favorite(track_id, favorite)
+            if self.library_track_id == track_id:
+                self._updating_favorite = True
+                self.favorite_button.set_active(favorite)
+                self._updating_favorite = False
+                self.favorite_button.set_tooltip_text(
+                    "Quitar de favoritos" if favorite else "Añadir a favoritos"
+                )
+            self._refresh_library()
+        except LibraryError as exc:
+            self._set_status("Biblioteca no disponible", str(exc), "REVISAR", pending=True)
+            self._refresh_library()
+
     def _build_sidebar(self) -> Gtk.Widget:
         sidebar = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=0)
         sidebar.add_css_class("sidebar")
@@ -433,6 +624,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.file_card.append(self.spectrum_view)
         body.append(source_card)
         body.append(self.file_card)
+        body.append(self._build_library_card())
 
         extract_card = self._card()
         extract_card.add_css_class("extract-card")
@@ -778,6 +970,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.favorite_button.set_active(False)
         self._updating_favorite = False
         self.favorite_button.set_sensitive(False)
+        self.favorite_button.remove_css_class("ready")
         self.favorite_button.set_tooltip_text("Añadir a favoritos")
         self.pitch_shift = 0
         self._saved_pitch_shift = 0
@@ -822,9 +1015,11 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.favorite_button.set_active(record.favorite)
                 self._updating_favorite = False
                 self.favorite_button.set_sensitive(True)
+                self.favorite_button.add_css_class("ready")
                 self.favorite_button.set_tooltip_text(
                     "Quitar de favoritos" if record.favorite else "Añadir a favoritos"
                 )
+                self._refresh_library()
             except LibraryError as exc:
                 self.sidebar_status.set_text(
                     f"Audio listo, pero la biblioteca no pudo registrar la pista: {exc}"
@@ -854,6 +1049,7 @@ class MainWindow(Gtk.ApplicationWindow):
         try:
             self.library.set_favorite(self.library_track_id, favorite)
             button.set_tooltip_text("Quitar de favoritos" if favorite else "Añadir a favoritos")
+            self._refresh_library()
         except LibraryError as exc:
             self._updating_favorite = True
             button.set_active(not favorite)

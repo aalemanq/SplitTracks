@@ -619,6 +619,110 @@ checkbutton.category-check:disabled {
   background: @surface;
 }
 
+.library-list {
+  background: transparent;
+}
+
+.library-row {
+  min-height: 58px;
+  padding: 3px;
+  border: 1px solid @line;
+  border-radius: 11px;
+  background: @surface;
+}
+
+.library-row:hover {
+  border-color: @line-strong;
+  background: @surface-raised;
+}
+
+.library-row.missing {
+  opacity: 0.55;
+}
+
+.library-icon-badge {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 5px;
+  border-radius: 9px;
+  background: @cyan-soft;
+}
+
+.library-icon-badge image {
+  color: @cyan;
+}
+
+.library-title {
+  color: @ink;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.library-meta,
+.library-analysis {
+  color: @muted;
+  font-size: 9px;
+}
+
+.library-analysis {
+  color: @cyan;
+}
+
+.library-empty {
+  min-height: 44px;
+  padding: 8px;
+  border: 1px dashed @line;
+  border-radius: 10px;
+  background: transparent;
+}
+
+.library-favorite,
+.library-filter {
+  min-width: 28px;
+  min-height: 28px;
+  padding: 0;
+  border: 1px solid @line-strong;
+  border-radius: 8px;
+  background: @surface-raised;
+  color: @muted;
+}
+
+.library-favorite:hover,
+.library-filter:hover {
+  border-color: @yellow;
+  color: @yellow;
+}
+
+.library-favorite:checked,
+.library-filter:checked {
+  border-color: @yellow;
+  background: @yellow-soft;
+  color: @yellow;
+}
+
+.library-favorite:checked image,
+.library-filter:checked image {
+  color: @yellow;
+}
+
+.favorite-toggle.ready {
+  color: @cyan;
+}
+
+.favorite-toggle.ready image {
+  color: @cyan;
+}
+
+.favorite-toggle.ready:checked {
+  border-color: @yellow;
+  background: @yellow-soft;
+  color: @yellow;
+}
+
+.favorite-toggle.ready:checked image {
+  color: @yellow;
+}
+
 .favorite-toggle {
   min-width: 30px;
   min-height: 30px;
