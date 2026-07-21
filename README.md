@@ -23,7 +23,7 @@ Los botones `−`, `+` y `Original` de `Transponer análisis` cambian solo la re
 
 La detección de acordes es deliberadamente local y prudente: usa perfiles de chroma y plantillas de triadas, aplica suavizado temporal para descartar cambios aislados de baja confianza y reconoce patrones repetidos de mezcla modal como I–III–IV–iv. No consulta webs ni presenta una transcripción como exacta. Las páginas de acordes pueden elegir nombres distintos para una misma sonoridad —por inversión, extensiones o simplificación—, así que la mejor validación sigue siendo escuchar el segmento y contrastarlo con el instrumento.
 
-La cabecera concentra ahora la URL de YouTube, la apertura de archivos locales, los accesos rápidos de extracción por stem y el botón Separar; las tarjetas laterales siguen disponibles para revisar la selección con detalle.
+La cabecera concentra ahora la URL de YouTube, la apertura de archivos locales, los accesos rápidos por stem y el botón Separar. La columna lateral queda reservada para la carpeta de trabajo y el análisis musical, con una lectura más amplia de sus metadatos y acordes.
 
 ## Ejecutar en Ubuntu 24.04.4 LTS
 
@@ -54,9 +54,9 @@ Después:
 1. Pega un enlace de YouTube y pulsa `Añadir`, o pulsa `Subir audio` para elegir un archivo local.
 2. Elige las categorías que quieres conservar; `Other` se calcula automáticamente.
 3. Elige una carpeta de trabajo explícita.
-4. Pulsa `Separar y preparar pistas`.
+4. Pulsa `Separar` en la cabecera; durante el proceso se muestra el tiempo transcurrido.
 5. Escucha y ajusta cada stem con mute, solo y volumen.
-6. Usa `Exportar mezcla MP3` para crear `Split Tracks - mezcla.mp3`.
+6. Usa `Exportar mezcla MP3` para crear `Split Tracks - mezcla.mp3`; el estado final indica la carpeta y el nombre exacto del archivo guardado.
 7. Pulsa `−` y `+` para preescuchar cada semitono al vuelo mientras la canción sigue sonando.
 8. Cuando te guste, pulsa `Guardar tonalidad` para crear las pistas MP3 en esa tonalidad.
 

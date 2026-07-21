@@ -31,8 +31,8 @@ window {
 }
 
 headerbar {
-  min-height: 84px;
-  padding: 12px 24px;
+  min-height: 72px;
+  padding: 10px 8px 10px 18px;
   background: @sidebar;
   border: 0;
   border-bottom: 1px solid @line;
@@ -40,8 +40,8 @@ headerbar {
 }
 
 headerbar button {
-  min-width: 30px;
-  min-height: 30px;
+  min-width: 26px;
+  min-height: 28px;
   padding: 0 7px;
   border: 1px solid @line;
   border-radius: 9px;
@@ -55,6 +55,25 @@ headerbar button:hover {
   color: @ink;
 }
 
+/* Mantiene los controles nativos de la ventana compactos y pegados al borde. */
+headerbar windowcontrols,
+headerbar > windowcontrols {
+  margin: 0;
+  padding: 0;
+}
+
+headerbar windowcontrols button {
+  min-width: 24px;
+  min-height: 24px;
+  margin: 0 1px;
+  padding: 0;
+  border-radius: 7px;
+}
+
+headerbar windowcontrols button image {
+  -gtk-icon-size: 12px;
+}
+
 .brand-mark {
   min-width: 48px;
   min-height: 48px;
@@ -66,41 +85,43 @@ headerbar button:hover {
 
 .brand-title {
   color: @ink;
-  font-size: 17px;
+  font-size: 21px;
   font-weight: 850;
   letter-spacing: 0.5px;
 }
 
 .brand-subtitle {
   color: @muted;
-  font-size: 9px;
+  font-size: 10px;
   font-weight: 750;
   letter-spacing: 1px;
 }
 
 .header-source {
-  min-width: 300px;
-  margin-left: 12px;
+  min-width: 360px;
+  margin-left: 20px;
 }
 
 .header-youtube-entry,
 entry.header-youtube-entry {
-  min-width: 240px;
-  min-height: 31px;
+  min-width: 260px;
+  min-height: 36px;
+  padding: 0 12px;
+  font-size: 12px;
   background: @canvas;
 }
 
 button.header-action {
-  min-height: 31px;
-  padding: 0 9px;
-  border-radius: 8px;
-  font-size: 10px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 10px;
+  font-size: 11px;
 }
 
 .header-extract {
-  min-height: 31px;
-  margin-left: 10px;
-  padding-left: 8px;
+  min-height: 36px;
+  margin-left: 16px;
+  padding-left: 14px;
   border-left: 1px solid @line;
 }
 
@@ -114,11 +135,13 @@ button.header-action {
 
 button.header-stem-toggle {
   min-width: 0;
-  min-height: 34px;
-  padding: 0 8px;
+  min-height: 36px;
+  padding: 0 11px;
   border-radius: 10px;
   background: @surface;
   color: @muted;
+  font-size: 11px;
+  font-weight: 800;
 }
 
 .header-stem-label {
@@ -145,14 +168,14 @@ button.header-stem-guitar:checked { border-color: @violet; background: @violet-s
 button.header-stem-piano:checked { border-color: @yellow; background: @yellow-soft; }
 
 button.header-split-action {
-  min-height: 34px;
-  margin-left: 10px;
-  padding: 0 11px;
+  min-height: 36px;
+  margin-left: 14px;
+  padding: 0 16px;
   border: 0;
-  border-radius: 9px;
+  border-radius: 10px;
   background: @yellow;
   color: #fff8dc;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 850;
 }
 
@@ -374,13 +397,19 @@ image.drop-icon {
 
 .file-name {
   color: @ink;
-  font-size: 13px;
+  font-size: 17px;
   font-weight: 800;
 }
 
 .file-meta {
-  color: @muted;
-  font-size: 10px;
+  margin-top: 2px;
+  padding: 8px 10px;
+  border: 1px solid @line;
+  border-radius: 10px;
+  background: @surface-raised;
+  color: @ink;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .entry,
@@ -425,6 +454,7 @@ entry placeholder {
 .status-detail {
   color: @muted;
   font-size: 11px;
+  line-height: 1.35;
 }
 
 .status-pill {
@@ -697,14 +727,21 @@ checkbutton.category-check:disabled {
 
 .folder-path {
   color: #a9c66a;
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 700;
 }
 
 .file-analysis {
   margin-top: 4px;
+  padding: 8px 10px;
+  border: 1px solid @line;
+  border-radius: 10px;
+  background: @surface-raised;
   color: @cyan;
-  font-size: 10px;
+  font-size: 12px;
+  font-weight: 700;
   letter-spacing: 0.1px;
+  line-height: 1.35;
 }
 
 .chord-panels {
@@ -713,28 +750,28 @@ checkbutton.category-check:disabled {
 
 .chord-panel {
   min-width: 0;
-  min-height: 124px;
+  min-height: 142px;
   padding: 11px;
 }
 
 .chord-panel-title {
   color: @ink;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 850;
   letter-spacing: 0.3px;
 }
 
 .chord-flow {
-  min-height: 30px;
+  min-height: 34px;
   margin-top: 4px;
 }
 
 .chord-chip {
   min-width: 0;
-  min-height: 28px;
-  padding: 5px 8px;
+  min-height: 32px;
+  padding: 6px 8px;
   border-radius: 9px;
-  font-size: 13px;
+  font-size: 15px;
   font-weight: 850;
 }
 
@@ -786,13 +823,13 @@ checkbutton.category-check:disabled {
 
 .track-name {
   color: @ink;
-  font-size: 12px;
+  font-size: 13px;
   font-weight: 850;
 }
 
 .track-kind {
   color: @muted;
-  font-size: 9px;
+  font-size: 10px;
 }
 
 .track-value {
