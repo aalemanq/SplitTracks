@@ -352,6 +352,8 @@ class MainWindow(Gtk.ApplicationWindow):
         for value in values:
             chip = label(value or "—", "chord-chip")
             chip.set_xalign(0.5)
+            chip.set_yalign(0.5)
+            chip.set_valign(Gtk.Align.CENTER)
             # Reserve the same cell width for every pitch so the four-column
             # grid stays still when a root changes from C to C♯/D♭.
             chip.set_size_request(64, 32)
@@ -530,10 +532,16 @@ class MainWindow(Gtk.ApplicationWindow):
         cell.append(label(title, "metric-label"))
         value = label("—", "metric-value")
         value.set_hexpand(True)
+        value.set_valign(Gtk.Align.CENTER)
         value.set_ellipsize(3)
+        if key == "key":
+            # Accidentals can have a taller fallback glyph than natural notes.
+            # Reserve the same vertical slot so the metric grid never jumps.
+            value.set_size_request(-1, 36)
         cell.append(value)
         detail = label("", "metric-detail")
         detail.set_hexpand(True)
+        detail.set_valign(Gtk.Align.CENTER)
         detail.set_ellipsize(3)
         cell.append(detail)
         self.analysis_metric_values[key] = value
