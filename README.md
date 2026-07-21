@@ -16,6 +16,10 @@ La calidad depende mucho de la mezcla de origen. En canciones con bajo muy compr
 
 No hay cuentas, modo premium, paywall ni funciones limitadas por ventas: es una aplicación de uso personal.
 
+## Contexto para agentes de código
+
+OpenCode y otros asistentes deben leer primero [AGENTS.md](AGENTS.md), [docs/PROJECT_CONTEXT.md](docs/PROJECT_CONTEXT.md) y [docs/DEVELOPMENT.md](docs/DEVELOPMENT.md). Ahí están las decisiones de producto, el mapa de la arquitectura, los límites conocidos, el flujo Git y los comandos de validación.
+
 ## Análisis musical local
 
 Al cargar un archivo, el análisis se ejecuta en segundo plano con FFmpeg y NumPy para no bloquear la interfaz. La tarjeta muestra un panel de métricas con tonalidad destacada, BPM, duración, escala, LUFS, dinámica, formato, muestreo, canales, estabilidad del tempo, confianza tonal y el número de acordes de la fuente humana seleccionada. Los acordes y grados se muestran en cuatro columnas para facilitar la lectura.
