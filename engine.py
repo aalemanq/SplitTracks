@@ -302,7 +302,6 @@ class SeparationEngine:
             "1",
             "--overlap",
             "0.25",
-            "--int24",
             "-j",
             "1",
             "-o",
@@ -364,17 +363,17 @@ class SeparationEngine:
         requested = [name for name in STEM_ORDER if name in selected and name != "other"]
         for index, name in enumerate(requested):
             display_name, kind, color = STEM_LABELS[name]
-            output = folder / f"{display_name}.mp3"
-            self._render_audio((raw_stems[name],), output, info.sample_rate, info.channels)
+            output = folder / f"{display_name}.wav"
+            shutil.move(str(raw_stems[name]), output)
             final_stems.append(StemFile(display_name, output, color, kind))
             if progress:
-                progress(0.80 + 0.10 * (index + 1) / max(1, len(requested) + 1), f"Separando {display_name}")
+                progress(0.80 + 0.06 * (index + 1) / max(1, len(requested) + 1), f"Preparando {display_name}")
 
         complement_inputs = [raw_stems["other"]]
         complement_inputs.extend(raw_stems[name] for name in STEM_ORDER if name != "other" and name not in selected)
-        other_output = folder / "Other.mp3"
+        other_output = folder / "Other.wav"
         if progress:
-            progress(0.90, "Separando Other")
+            progress(0.88, "Preparando Other")
         self._render_audio(tuple(complement_inputs), other_output, info.sample_rate, info.channels)
         final_stems.append(StemFile("Other", other_output, STEM_LABELS["other"][2], "complemento de las pistas no seleccionadas"))
         shutil.rmtree(raw_dir, ignore_errors=True)
@@ -391,7 +390,7 @@ class SeparationEngine:
                     "input": str(info.path),
                     "input_sha256": _sha256(info.path),
                     "selected_categories": sorted(selected),
-                    "output_format": "mp3",
+                    "output_format": "wav_internal_mp3_on_demand",
                     "output_bitrate": self.mp3_bitrate,
                     "model_cache": str(Path.home() / ".cache"),
                     "outputs": [
@@ -529,7 +528,39 @@ class SeparationEngine:
     def _codec_args(self, output: Path) -> list[str]:
         if output.suffix.lower() == ".mp3":
             return ["-c:a", "libmp3lame", "-b:a", self.mp3_bitrate, "-id3v2_version", "3"]
-        return ["-c:a", "pcm_s24le"]
+        return ["-c:a", "pcm_s16le"]
+
+    def export_stem_mp3(
+        self,
+        stem: dict,
+        destination: str | Path,
+        sample_rate: int,
+        channels: int,
+    ) -> Path:
+        destination_path = Path(destination).expanduser().resolve()
+        destination_path.mkdir(parents=True, exist_ok=True)
+        output = destination_path / f"{_safe_name(Path(stem['name']).stem)}.mp3"
+        self._render_audio((Path(stem["path"]),), output, sample_rate, channels)
+        return output
+
+    def export_stems_mp3(
+        self,
+        stems: Iterable[dict],
+        destination: str | Path,
+        sample_rate: int,
+        channels: int,
+        progress: ProgressCallback | None = None,
+    ) -> tuple[Path, ...]:
+        stem_list = list(stems)
+        if not stem_list:
+            raise AudioEngineError("No hay pistas disponibles para exportar.")
+        outputs: list[Path] = []
+        for index, stem in enumerate(stem_list):
+            output = self.export_stem_mp3(stem, destination, sample_rate, channels)
+            outputs.append(output)
+            if progress:
+                progress((index + 1) / len(stem_list), f"Exportando {stem['name']} MP3")
+        return tuple(outputs)
 
     def mix(
         self,
@@ -613,7 +644,7 @@ class SeparationEngine:
             f"- Muestreo de entrada/salida: `{info.sample_rate_label}`",
             f"- Canales: `{info.channels}` ({info.channel_layout or 'no indicado'})",
             f"- Modelo: `{MODEL_NAME}` (Demucs 6 fuentes, ejecución CPU local)",
-            "- Exportación de sesión: `MP3 320 kbps`; los WAV solo se usan como temporales internos.",
+            "- Sesión interna: `WAV` PCM de 16 bits para reproducir y mezclar sin recodificación; los MP3 se generan bajo demanda a `320 kbps`.",
             f"- Selección: `{', '.join(sorted(selected))}`",
             "- Procesamiento: completamente local; no se ha subido el audio.",
             "",
@@ -625,7 +656,7 @@ class SeparationEngine:
             "",
             "## Notas",
             "",
-            "`Other.mp3` se calcula sumando el stem Other del modelo y todas las categorías no seleccionadas. "
+            "`Other.wav` se calcula sumando el stem Other del modelo y todas las categorías no seleccionadas. "
             "Las salidas de guitarra y piano pueden contener más filtración y el bajo puede perder presencia cuando comparte graves con bombo o sintetizadores; son limitaciones conocidas del modelo htdemucs_6s.",
             "",
             f"Resultados: `{folder}`",

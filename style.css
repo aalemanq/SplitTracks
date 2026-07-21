@@ -912,6 +912,24 @@ checkbutton.category-check:disabled {
   font-variant: tabular-nums;
 }
 
+.track-export {
+  min-width: 48px;
+  min-height: 30px;
+  padding: 0 7px;
+  border-color: @line-strong;
+  border-radius: 8px;
+  background: @surface-raised;
+  color: @cyan;
+  font-size: 10px;
+  font-weight: 900;
+}
+
+.track-export:hover {
+  border-color: @cyan;
+  background: @cyan-soft;
+  color: @ink;
+}
+
 .track-toggle {
   min-width: 34px;
   min-height: 34px;

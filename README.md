@@ -1,12 +1,12 @@
 # Split Tracks
 
-Aplicación de escritorio para Ubuntu que descarga audio de YouTube o carga una mezcla local, separa seis stems con Demucs en CPU, los reproduce en un mezclador sincronizado, permite transponerlos por semitonos y exporta MP3 offline.
+Aplicación de escritorio para Ubuntu que descarga audio de YouTube o carga una mezcla local, separa seis stems con Demucs en CPU, los reproduce desde WAV internos en un mezclador sincronizado, permite transponerlos por semitonos y exporta MP3 bajo demanda.
 
 ## Separación real
 
-Split Tracks usa el modelo local `htdemucs_6s` de Demucs 4.1.0. Genera `Voces`, `Batería completa`, `Bajo`, `Guitarra`, `Piano y teclados` y `Other`. El modelo trabaja internamente a 44,1 kHz; Split Tracks convierte las salidas al muestreo y número de canales de la entrada antes de guardarlas como MP3 a 320 kbps.
+Split Tracks usa el modelo local `htdemucs_6s` de Demucs 4.1.0. Genera `Voces`, `Batería completa`, `Bajo`, `Guitarra`, `Piano y teclados` y `Other`. El modelo trabaja internamente a 44,1 kHz; Split Tracks conserva las salidas como WAV PCM de 16 bits para evitar recodificaciones durante la separación y las convierte a MP3 320 kbps solo al exportarlas.
 
-`Other` siempre se genera como complemento: suma el `Other` del modelo y todas las categorías que no hayas seleccionado. Las salidas de piano y guitarra pueden contener más filtración que voces, batería o bajo; además, el bajo puede perder presencia cuando comparte frecuencias con el bombo, sintetizadores o instrumentos graves. Son limitaciones conocidas de `htdemucs_6s`, no un recorte aplicado por la interfaz: cuando seleccionas Bajo, la aplicación exporta directamente el `bass.wav` generado por el modelo.
+`Other` siempre se genera como complemento: suma el `Other` del modelo y todas las categorías que no hayas seleccionado. Las salidas de piano y guitarra pueden contener más filtración que voces, batería o bajo; además, el bajo puede perder presencia cuando comparte frecuencias con el bombo, sintetizadores o instrumentos graves. Son limitaciones conocidas de `htdemucs_6s`, no un recorte aplicado por la interfaz: cuando seleccionas Bajo, la aplicación conserva directamente el `bass.wav` generado por el modelo y lo convierte a MP3 solo si lo exportas.
 
 ### Estado del modelo
 
@@ -57,7 +57,8 @@ Después:
 4. Pulsa `Separar` en la cabecera; durante el proceso se muestra el tiempo transcurrido.
 5. Escucha y ajusta cada stem con mute, solo y volumen.
 6. Usa `Exportar mezcla MP3` para crear `Split Tracks - mezcla.mp3`; el estado final indica la carpeta y el nombre exacto del archivo guardado.
-7. Pulsa `−` y `+` para preescuchar cada semitono al vuelo mientras la canción sigue sonando.
+7. Usa `Exportar pistas MP3` para exportar las pistas activas (respetando Mute/Solo), o pulsa `MP3` en una pista concreta.
+8. Pulsa `−` y `+` para preescuchar cada semitono al vuelo mientras la canción sigue sonando.
 
 La entrada de YouTube se descarga solo para uso personal y debe respetar los derechos y condiciones aplicables al contenido.
 
@@ -70,7 +71,9 @@ python3 -m py_compile app.py analysis.py engine.py player.py
 ./.venv/bin/python -c "import torch, torchaudio, demucs; print(torch.__version__, torch.cuda.is_available())"
 ```
 
-La separación actual necesita una mezcla estéreo de dos canales. La preescucha usa el elemento `pitch` de GStreamer SoundTouch y cambia la tonalidad en tiempo real manteniendo el tempo. El cambio de tonalidad afecta a la escucha y al análisis mostrado; no crea copias nuevas ni altera los stems exportados. El procesamiento es CPU y puede tardar aproximadamente lo mismo o más que la duración de la canción según el tamaño y la memoria disponible.
+La separación actual necesita una mezcla estéreo de dos canales. La preescucha usa el elemento `pitch` de GStreamer SoundTouch y cambia la tonalidad en tiempo real manteniendo el tempo. El cambio de tonalidad afecta a la escucha y al análisis mostrado; no crea copias nuevas ni altera los stems internos.
+
+La separación conserva WAV para acelerar la reproducción y la mezcla. Los MP3 se generan solo mediante `Exportar mezcla MP3`, `Exportar pistas MP3` o el botón `MP3` de cada pista. El procesamiento es CPU y puede tardar aproximadamente lo mismo o más que la duración de la canción según el tamaño y la memoria disponible.
 
 ## Fuentes del motor
 

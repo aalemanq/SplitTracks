@@ -119,12 +119,13 @@ def spacer(height: int = 8) -> Gtk.Box:
 
 
 class TrackRow(Gtk.Box):
-    def __init__(self, index: int, stem: dict, changed):
+    def __init__(self, index: int, stem: dict, changed, export_stem):
         super().__init__(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
         self.add_css_class("track-row")
         self.index = index
         self.stem = stem
         self.changed = changed
+        self.export_stem = export_stem
         self.set_margin_bottom(8)
 
         icon_badge = Gtk.Box()
@@ -177,6 +178,14 @@ class TrackRow(Gtk.Box):
         self.value_label = label("100%", "track-value")
         self.value_label.set_xalign(1)
         self.append(self.value_label)
+
+        self.export_button = Gtk.Button(label="MP3")
+        self.export_button.add_css_class("track-export")
+        self.export_button.set_tooltip_text("Exportar esta pista como MP3")
+        self.export_button.set_size_request(48, 30)
+        self.export_button.set_valign(Gtk.Align.CENTER)
+        self.export_button.connect("clicked", lambda *_: self.export_stem(self.index))
+        self.append(self.export_button)
 
     def _on_toggle(self, _button) -> None:
         self.changed(self.index, self.state())
@@ -453,7 +462,7 @@ class MainWindow(Gtk.ApplicationWindow):
         output_heading.append(ui_icon("folder-open-symbolic", 17))
         output_heading.append(label("Carpeta de trabajo", "card-title"))
         output_card.append(output_heading)
-        output_card.append(label("Las pistas y mezclas se guardan como MP3 320 kbps; el WAV solo es temporal interno.", "card-caption", wrap=True))
+        output_card.append(label("Las pistas se mantienen en WAV para reproducir y mezclar rápido; los MP3 se exportan cuando los pides.", "card-caption", wrap=True))
         folder_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.folder_label = label("Ninguna carpeta elegida", "folder-path")
         self.folder_label.set_ellipsize(3)
@@ -592,6 +601,10 @@ class MainWindow(Gtk.ApplicationWindow):
         self.export_button.set_sensitive(False)
         self.export_button.connect("clicked", self._export_mix)
         title_row.append(self.export_button)
+        self.export_stems_button = icon_button("Exportar pistas MP3", "document-save-symbolic")
+        self.export_stems_button.set_sensitive(False)
+        self.export_stems_button.connect("clicked", self._export_stems)
+        title_row.append(self.export_stems_button)
         open_button = icon_button("Abrir carpeta", "folder-open-symbolic")
         open_button.connect("clicked", self._open_results)
         title_row.append(open_button)
@@ -670,7 +683,7 @@ class MainWindow(Gtk.ApplicationWindow):
 
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         footer.append(label("SPLIT TRACKS / UBUNTU", "eyebrow"))
-        footer.append(label("·  Demucs 6s CPU  ·  MP3 320 kbps  ·  WAV interno", "section-note"))
+        footer.append(label("·  Demucs 6s CPU  ·  WAV interno  ·  MP3 bajo demanda", "section-note"))
         content.append(footer)
         return outer
 
@@ -922,6 +935,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_status("Pistas listas para escuchar", "Separación Demucs 6s completada", "LISTO")
         self.sidebar_status.set_text(f"Guardado en {result.output_dir}")
         self.export_button.set_sensitive(True)
+        self.export_stems_button.set_sensitive(True)
         self._set_pitch_controls(True)
         self._update_start_state()
         return False
@@ -935,11 +949,11 @@ class MainWindow(Gtk.ApplicationWindow):
         while child := self.track_list.get_first_child():
             self.track_list.remove(child)
         for index, state in enumerate(self.track_states):
-            self.track_list.append(TrackRow(index, state, self._track_changed))
+            self.track_list.append(TrackRow(index, state, self._track_changed, self._export_track))
         try:
             self.player.load(self.track_states, self.audio_info.duration)
         except Exception as exc:
-            self._set_status("Pistas exportadas", f"La reproducción no está disponible: {exc}", "REVISAR", pending=True)
+            self._set_status("Pistas preparadas", f"La reproducción no está disponible: {exc}", "REVISAR", pending=True)
         self.timeline.set_range(0, max(0.1, self.audio_info.duration))
         self.timeline.set_value(0)
         self.total_time.set_text(fmt_time(self.audio_info.duration))
@@ -1043,11 +1057,86 @@ class MainWindow(Gtk.ApplicationWindow):
         if previous != semitones:
             self._set_timeline(self.player.position())
 
+    def _begin_stems_export(self, stems: tuple[dict, ...], single: bool) -> None:
+        if not self.result or self._busy or not stems:
+            return
+        self._busy = True
+        self.youtube_button.set_sensitive(False)
+        if self.header_split_button:
+            self.header_split_button.set_sensitive(False)
+        self.export_button.set_sensitive(False)
+        self.export_stems_button.set_sensitive(False)
+        self.progress.set_visible(True)
+        self.progress.set_fraction(0.0)
+        title = "Exportando pista MP3" if single else "Exportando pistas MP3"
+        self._set_status(title, "Preparando archivos MP3 sin alterar los WAV internos", "EXPORTANDO")
+        threading.Thread(target=self._stems_export_worker, args=(stems,), daemon=True).start()
+
+    def _export_track(self, index: int) -> None:
+        if index < 0 or index >= len(self.track_states):
+            return
+        self._begin_stems_export((dict(self.track_states[index]),), True)
+
+    def _active_track_states(self) -> tuple[dict, ...]:
+        solo_exists = any(item.get("solo", False) for item in self.track_states)
+        return tuple(
+            dict(item)
+            for item in self.track_states
+            if not item.get("mute", False) and (not solo_exists or item.get("solo", False))
+        )
+
+    def _export_stems(self, _button) -> None:
+        stems = self._active_track_states()
+        if not stems:
+            self._set_status("No hay pistas activas", "Desactiva Mute o Solo antes de exportar los MP3", "REVISAR", pending=True)
+            return
+        self._begin_stems_export(stems, False)
+
+    def _stems_export_worker(self, stems: tuple[dict, ...]) -> None:
+        try:
+            paths = self.engine.export_stems_mp3(
+                stems,
+                self.result.output_dir,
+                self.audio_info.sample_rate,
+                self.audio_info.channels,
+                progress=lambda value, phase: GLib.idle_add(self._operation_progress, value, phase),
+            )
+            GLib.idle_add(self._stems_export_success, paths)
+        except AudioEngineError as exc:
+            GLib.idle_add(self._stems_export_error, str(exc))
+        except Exception as exc:
+            GLib.idle_add(self._stems_export_error, f"Error inesperado: {exc}")
+
+    def _stems_export_success(self, paths: tuple[Path, ...]) -> bool:
+        self._busy = False
+        self.progress.set_visible(False)
+        self.youtube_button.set_sensitive(True)
+        self.export_button.set_sensitive(True)
+        self.export_stems_button.set_sensitive(True)
+        self._update_start_state()
+        if len(paths) == 1:
+            detail = f"{paths[0].name} guardado en {paths[0].parent}"
+        else:
+            detail = f"{len(paths)} pistas MP3 guardadas en {paths[0].parent}"
+        self._set_status("Pistas MP3 exportadas", detail, "LISTO")
+        return False
+
+    def _stems_export_error(self, detail: str) -> bool:
+        self._busy = False
+        self.progress.set_visible(False)
+        self.youtube_button.set_sensitive(True)
+        self.export_button.set_sensitive(bool(self.result))
+        self.export_stems_button.set_sensitive(bool(self.result))
+        self._update_start_state()
+        self._set_status("No se pudieron exportar las pistas", detail, "REVISAR", pending=True)
+        return False
+
     def _export_mix(self, _button) -> None:
         if not self.result or self._busy:
             return
         self._busy = True
         self.export_button.set_sensitive(False)
+        self.export_stems_button.set_sensitive(False)
         self.progress.set_visible(True)
         self.progress.set_fraction(0)
         self._set_status("Exportando mezcla", "Aplicando volumen, mute y solo offline", "EXPORTANDO")
@@ -1070,6 +1159,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._busy = False
         self.progress.set_visible(False)
         self.export_button.set_sensitive(True)
+        self.export_stems_button.set_sensitive(True)
         detail = f"Mezcla guardada en {output.parent} · archivo {output.name}"
         if warning:
             detail += f" · {warning}"
@@ -1107,6 +1197,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_status("No se pudo completar", detail, "REVISAR", pending=True)
         self.sidebar_status.set_text(detail)
         self.export_button.set_sensitive(bool(self.result))
+        self.export_stems_button.set_sensitive(bool(self.result))
         self._update_start_state()
         return False
 
