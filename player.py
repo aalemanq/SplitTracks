@@ -25,20 +25,25 @@ class MixerPlayer:
         self.close()
         pipeline = Gst.Pipeline.new("stemforge-single-clock")
         mixer = Gst.ElementFactory.make("audiomixer", "mixer")
+        pitch = Gst.ElementFactory.make("pitch", "master-pitch") if self.pitch_supported else None
         convert = Gst.ElementFactory.make("audioconvert", "master-convert")
         resample = Gst.ElementFactory.make("audioresample", "master-resample")
         sink = Gst.ElementFactory.make("autoaudiosink", "master-sink")
-        if not all((pipeline, mixer, convert, resample, sink)):
+        if not all((pipeline, mixer, convert, resample, sink)) or (self.pitch_supported and pitch is None):
             raise RuntimeError("GStreamer no tiene los elementos de audio necesarios.")
-        pipeline.add(mixer)
-        pipeline.add(convert)
-        pipeline.add(resample)
-        pipeline.add(sink)
-        if not mixer.link(convert) or not convert.link(resample) or not resample.link(sink):
+        elements = (mixer, pitch, convert, resample, sink) if pitch else (mixer, convert, resample, sink)
+        for element in elements:
+            pipeline.add(element)
+        if pitch:
+            if not mixer.link(pitch) or not pitch.link(convert):
+                raise RuntimeError("No se pudo preparar el cambio de tonalidad en directo.")
+            self.pitch_effects = [pitch]
+        elif not mixer.link(convert):
             raise RuntimeError("No se pudo conectar el mezclador de audio.")
+        if not convert.link(resample) or not resample.link(sink):
+            raise RuntimeError("No se pudo conectar la salida de audio.")
 
         self.volumes = []
-        self.pitch_effects = []
         for index, stem in enumerate(stems):
             source = Gst.ElementFactory.make("filesrc", f"source-{index}")
             decoder = Gst.ElementFactory.make("decodebin", f"decoder-{index}")
@@ -46,25 +51,18 @@ class MixerPlayer:
             audio_convert = Gst.ElementFactory.make("audioconvert", f"convert-{index}")
             audio_resample = Gst.ElementFactory.make("audioresample", f"resample-{index}")
             volume = Gst.ElementFactory.make("volume", f"volume-{index}")
-            pitch = Gst.ElementFactory.make("pitch", f"pitch-{index}") if self.pitch_supported else None
-            if not all((source, decoder, queue, audio_convert, audio_resample, volume)) or (self.pitch_supported and pitch is None):
+            if not all((source, decoder, queue, audio_convert, audio_resample, volume)):
                 raise RuntimeError("GStreamer no tiene soporte para decodificar este audio.")
             source.set_property("location", str(stem["path"]))
             volume.set_property("volume", 0.0)
-            elements = (source, decoder, queue, audio_convert, audio_resample, pitch, volume) if pitch else (source, decoder, queue, audio_convert, audio_resample, volume)
+            elements = (source, decoder, queue, audio_convert, audio_resample, volume)
             for element in elements:
                 pipeline.add(element)
             if not source.link(decoder):
                 raise RuntimeError("No se pudo abrir una pista separada.")
             decoder.connect("pad-added", self._on_pad_added, queue)
-            if not queue.link(audio_convert) or not audio_convert.link(audio_resample):
+            if not queue.link(audio_convert) or not audio_convert.link(audio_resample) or not audio_resample.link(volume):
                 raise RuntimeError("No se pudo preparar una pista del mezclador.")
-            if pitch:
-                if not audio_resample.link(pitch) or not pitch.link(volume):
-                    raise RuntimeError("No se pudo preparar el cambio de tonalidad en directo.")
-                self.pitch_effects.append(pitch)
-            elif not audio_resample.link(volume):
-                raise RuntimeError("No se pudo conectar una pista del mezclador.")
             if not volume.link(mixer):
                 raise RuntimeError("No se pudo conectar una pista al mezclador.")
             self.volumes.append(volume)
