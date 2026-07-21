@@ -9,7 +9,9 @@ audio engine: separation never depends on BPM or key detection succeeding.
 from __future__ import annotations
 
 import math
+import os
 import re
+import signal
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
@@ -21,6 +23,10 @@ class AnalysisError(RuntimeError):
     """A non-fatal audio-analysis error."""
 
 
+class AnalysisCancelled(AnalysisError):
+    """The user cancelled an in-progress analysis subprocess."""
+
+
 NOTE_NAMES = ("C", "C♯", "D", "D♯", "E", "F", "F♯", "G", "G♯", "A", "A♯", "B")
 MAJOR_PROFILE = np.array([6.35, 2.23, 3.48, 2.33, 4.38, 4.09, 2.52, 5.19, 2.39, 3.66, 2.29, 2.88])
 MINOR_PROFILE = np.array([6.33, 2.68, 3.52, 5.38, 2.60, 3.53, 2.54, 4.75, 3.98, 2.69, 3.34, 3.17])
@@ -28,6 +34,18 @@ SAMPLE_RATE = 11025
 FFT_SIZE = 2048
 HOP_SIZE = 512
 ANALYSIS_DURATION_SECONDS = 180.0
+
+
+def _signal_process_tree(process: subprocess.Popen, *, force: bool = False) -> None:
+    signal_value = signal.SIGKILL if force else signal.SIGTERM
+    try:
+        os.killpg(os.getpgid(process.pid), signal_value)
+    except (ProcessLookupError, PermissionError):
+        try:
+            (process.kill if force else process.terminate)()
+        except ProcessLookupError:
+            pass
+
 
 
 @dataclass(frozen=True)
@@ -198,7 +216,43 @@ class AudioAnalysis:
         }
 
 
-def _decode_mono(path: Path) -> np.ndarray:
+def _run_analysis_process(command: list[str], *, text: bool, cancel_event=None):
+    if cancel_event is None:
+        try:
+            return subprocess.run(command, check=False, capture_output=True, text=text)
+        except FileNotFoundError as exc:
+            raise AnalysisError("No encuentro FFmpeg para analizar el audio.") from exc
+
+    if cancel_event.is_set():
+        raise AnalysisCancelled("Análisis cancelado por el usuario.")
+    try:
+        process = subprocess.Popen(
+            command,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=text,
+            start_new_session=True,
+        )
+    except FileNotFoundError as exc:
+        raise AnalysisError("No encuentro FFmpeg para analizar el audio.") from exc
+
+    while True:
+        try:
+            stdout, stderr = process.communicate(timeout=0.2)
+            return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+        except subprocess.TimeoutExpired:
+            if not cancel_event.is_set():
+                continue
+            _signal_process_tree(process)
+            try:
+                process.communicate(timeout=2)
+            except subprocess.TimeoutExpired:
+                _signal_process_tree(process, force=True)
+                process.communicate()
+            raise AnalysisCancelled("Análisis cancelado por el usuario.")
+
+
+def _decode_mono(path: Path, cancel_event=None) -> np.ndarray:
     command = [
         "ffmpeg",
         "-hide_banner",
@@ -216,10 +270,7 @@ def _decode_mono(path: Path) -> np.ndarray:
         "f32le",
         "pipe:1",
     ]
-    try:
-        result = subprocess.run(command, check=False, capture_output=True)
-    except FileNotFoundError as exc:
-        raise AnalysisError("No encuentro FFmpeg para analizar el audio.") from exc
+    result = _run_analysis_process(command, text=False, cancel_event=cancel_event)
     if result.returncode != 0:
         raise AnalysisError("FFmpeg no pudo decodificar el audio para analizarlo.")
     samples = np.frombuffer(result.stdout, dtype=np.float32).copy()
@@ -488,7 +539,7 @@ def _detect_chords(
     return _stabilize_chords(tuple(events), key_name, scale, segment_seconds)
 
 
-def _measure_loudness(path: Path) -> float | None:
+def _measure_loudness(path: Path, cancel_event=None) -> float | None:
     command = [
         "ffmpeg",
         "-hide_banner",
@@ -505,18 +556,24 @@ def _measure_loudness(path: Path) -> float | None:
         "-",
     ]
     try:
-        result = subprocess.run(command, check=False, text=True, capture_output=True, encoding="utf-8", errors="replace")
+        result = _run_analysis_process(command, text=True, cancel_event=cancel_event)
     except FileNotFoundError:
         return None
     match = re.findall(r"\bI:\s*(-?\d+(?:\.\d+)?)\s*LUFS", result.stderr)
     return float(match[-1]) if match else None
 
 
-def analyze_audio(path: str | Path) -> AudioAnalysis:
+def analyze_audio(path: str | Path, *, detect_chords: bool = False, cancel_event=None) -> AudioAnalysis:
+    """Extract fast metadata, optionally retaining the legacy chord estimate.
+
+    Human chord charts are now the canonical source in the application. Keeping
+    the old detector behind an opt-in flag preserves it for diagnostics and
+    tests without making every upload pay its extra chroma-analysis cost.
+    """
     audio_path = Path(path).expanduser().resolve()
     if not audio_path.is_file():
         raise AnalysisError("El archivo ya no está disponible para analizarlo.")
-    samples = _decode_mono(audio_path)
+    samples = _decode_mono(audio_path, cancel_event=cancel_event)
     frames = _frames(samples)
     window = np.hanning(FFT_SIZE).astype(np.float32)
     magnitude = np.abs(np.fft.rfft(frames * window, axis=1))
@@ -524,8 +581,10 @@ def analyze_audio(path: str | Path) -> AudioAnalysis:
     frequencies = np.fft.rfftfreq(FFT_SIZE, 1.0 / SAMPLE_RATE)
     bpm, tempo_confidence = _detect_tempo(magnitude)
     key_name, scale, key_confidence = _detect_key(power, frequencies)
-    chroma = _chroma_frames(power, frequencies)
-    chords = _detect_chords(chroma, bpm, samples.size / SAMPLE_RATE, key_name, scale)
+    chords: tuple[ChordEvent, ...] = ()
+    if detect_chords:
+        chroma = _chroma_frames(power, frequencies)
+        chords = _detect_chords(chroma, bpm, samples.size / SAMPLE_RATE, key_name, scale)
     peak_dbfs = _db(float(np.max(np.abs(samples))))
     return AudioAnalysis(
         bpm=bpm,
@@ -533,7 +592,7 @@ def analyze_audio(path: str | Path) -> AudioAnalysis:
         key_name=key_name,
         scale=scale,
         key_confidence=key_confidence,
-        lufs=_measure_loudness(audio_path),
+        lufs=_measure_loudness(audio_path, cancel_event=cancel_event),
         peak_dbfs=peak_dbfs,
         dynamic_range_db=_dynamic_range(frames),
         spectrum=_spectrum(power, frequencies),

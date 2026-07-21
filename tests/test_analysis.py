@@ -38,6 +38,7 @@ class AudioAnalysisTest(unittest.TestCase):
             self.assertEqual(len(result.spectrum), 47)
             self.assertGreater(max(result.spectrum) - min(result.spectrum), 10.0)
             self.assertTrue(result.summary)
+            self.assertFalse(result.chords)
 
     def test_chord_progression_returns_timed_events(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
@@ -60,7 +61,7 @@ class AudioAnalysisTest(unittest.TestCase):
                 output.setframerate(sample_rate)
                 output.writeframes((np.clip(audio, -1, 1) * 32767).astype("<i2").tobytes())
 
-            result = analyze_audio(path)
+            result = analyze_audio(path, detect_chords=True)
 
             self.assertGreaterEqual(len(result.chords), 3)
             self.assertIn("C", result.chord_summary)
