@@ -163,7 +163,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._busy = False
         self._updating_timeline = False
         self.pitch_shift = 0
-        self._pitch_previous = 0
+        self._saved_pitch_shift = 0
         self._pitch_resume_playing = False
         self._pitch_resume_position = 0.0
 
@@ -398,8 +398,8 @@ class MainWindow(Gtk.ApplicationWindow):
         tone_card = Gtk.Box(orientation=Gtk.Orientation.VERTICAL, spacing=8)
         tone_card.add_css_class("tone-card")
         tone_header = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=10)
-        tone_header.append(label("Cambio de tonalidad", "section-heading"))
-        tone_header.append(label("Mantiene tempo y duración", "section-note"))
+        tone_header.append(label("Preescucha de tonalidad", "section-heading"))
+        tone_header.append(label("Cambia mientras suena; guarda al final", "section-note"))
         tone_card.append(tone_header)
         tone_controls = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
         self.pitch_down = Gtk.Button(label="−")
@@ -418,9 +418,14 @@ class MainWindow(Gtk.ApplicationWindow):
         tone_controls.append(self.pitch_up)
         self.pitch_reset = Gtk.Button(label="Original")
         self.pitch_reset.add_css_class("secondary-action")
-        self.pitch_reset.set_tooltip_text("Restablecer la tonalidad original")
+        self.pitch_reset.set_tooltip_text("Volver a la tonalidad original de la sesión")
         self.pitch_reset.connect("clicked", lambda *_: self._reset_pitch())
         tone_controls.append(self.pitch_reset)
+        self.pitch_save = Gtk.Button(label="Guardar tonalidad")
+        self.pitch_save.add_css_class("primary-action")
+        self.pitch_save.set_tooltip_text("Crear los MP3 en la tonalidad seleccionada")
+        self.pitch_save.connect("clicked", self._save_pitch)
+        tone_controls.append(self.pitch_save)
         tone_card.append(tone_controls)
         content.append(tone_card)
         self._set_pitch_controls(False)
@@ -566,6 +571,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self._cleanup_youtube_temp()
         self.input_path = Path(path).expanduser().resolve()
         self.pitch_shift = 0
+        self._saved_pitch_shift = 0
         self._set_pitch_display()
         self.file_card.set_visible(True)
         self.file_name.set_text(self.input_path.name)
@@ -668,6 +674,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.cancel_event = None
         self.result = result
         self.pitch_shift = 0
+        self._saved_pitch_shift = 0
         self._set_pitch_display()
         self.separate_button.set_label("Separar y preparar pistas")
         self.progress.set_visible(False)
@@ -755,39 +762,66 @@ class MainWindow(Gtk.ApplicationWindow):
     def _set_pitch_controls(self, enabled: bool) -> None:
         if not hasattr(self, "pitch_down"):
             return
-        available = bool(enabled and self.result and not self._busy)
+        available = bool(enabled and self.result and not self._busy and self.player.pitch_supported)
         self.pitch_down.set_sensitive(available and self.pitch_shift > -12)
         self.pitch_up.set_sensitive(available and self.pitch_shift < 12)
         self.pitch_reset.set_sensitive(available and self.pitch_shift != 0)
+        self.pitch_save.set_sensitive(available and self.pitch_shift != self._saved_pitch_shift)
 
     def _adjust_pitch(self, delta: int) -> None:
-        self._request_pitch_shift(max(-12, min(12, self.pitch_shift + delta)))
+        self._preview_pitch(max(-12, min(12, self.pitch_shift + delta)))
 
     def _reset_pitch(self) -> None:
-        self._request_pitch_shift(0)
+        self._preview_pitch(0)
 
-    def _request_pitch_shift(self, semitones: int) -> None:
+    def _preview_pitch(self, semitones: int) -> None:
         if self._busy or not self.result or not self.audio_info or semitones == self.pitch_shift:
             return
-        self._pitch_previous = self.pitch_shift
+        if not self.player.pitch_supported:
+            self._set_status(
+                "Preescucha no disponible",
+                "Instala gstreamer1.0-plugins-bad para cambiar el tono mientras suena.",
+                "REVISAR",
+                pending=True,
+            )
+            return
+        previous = self.pitch_shift
+        try:
+            self.player.set_pitch(semitones - self._saved_pitch_shift)
+        except Exception as exc:
+            self._set_status("No se pudo cambiar la preescucha", str(exc), "REVISAR", pending=True)
+            return
         self.pitch_shift = semitones
         self._set_pitch_display()
+        self._set_pitch_controls(True)
+        if semitones == self._saved_pitch_shift:
+            detail = "Escuchando la tonalidad guardada"
+        else:
+            detail = f"Escuchando {self._pitch_text()} · pulsa Guardar tonalidad cuando te guste"
+        self._set_status("Preescucha de tonalidad", detail, "ESCUCHANDO")
+        if previous != semitones:
+            self._set_timeline(self.player.position())
+
+    def _save_pitch(self, _button) -> None:
+        if not self.result or self._busy or self.pitch_shift == self._saved_pitch_shift:
+            return
+        semitones = self.pitch_shift
+        self._busy = True
         self._pitch_resume_playing = self.player.playing
         self._pitch_resume_position = self.player.position()
         if self._pitch_resume_playing:
             self.player.pause()
             self.play_button.set_label("▶")
-        self._busy = True
         self._set_pitch_controls(False)
         self.youtube_button.set_sensitive(False)
         self.separate_button.set_sensitive(False)
         self.export_button.set_sensitive(False)
         self.progress.set_visible(True)
         self.progress.set_fraction(0.0)
-        self._set_status("Cambiando tonalidad", f"Aplicando {self._pitch_text()} a todas las pistas", "TRANSPONIENDO")
-        threading.Thread(target=self._pitch_worker, args=(semitones,), daemon=True).start()
+        self._set_status("Guardando tonalidad", f"Creando MP3 en {self._pitch_text()}", "GUARDANDO")
+        threading.Thread(target=self._pitch_save_worker, args=(semitones,), daemon=True).start()
 
-    def _pitch_worker(self, semitones: int) -> None:
+    def _pitch_save_worker(self, semitones: int) -> None:
         try:
             paths = self.engine.render_transposed_stems(
                 self.track_states,
@@ -798,17 +832,18 @@ class MainWindow(Gtk.ApplicationWindow):
                 self.audio_info.duration,
                 progress=lambda value, phase: GLib.idle_add(self._operation_progress, value, phase),
             )
-            GLib.idle_add(self._pitch_success, semitones, paths)
+            GLib.idle_add(self._pitch_save_success, semitones, paths)
         except AudioEngineError as exc:
-            GLib.idle_add(self._pitch_error, str(exc))
+            GLib.idle_add(self._pitch_save_error, str(exc))
         except Exception as exc:
-            GLib.idle_add(self._pitch_error, f"Error inesperado: {exc}")
+            GLib.idle_add(self._pitch_save_error, f"Error inesperado: {exc}")
 
-    def _pitch_success(self, semitones: int, paths: tuple[Path, ...]) -> bool:
+    def _pitch_save_success(self, semitones: int, paths: tuple[Path, ...]) -> bool:
         for state, path in zip(self.track_states, paths):
             state["path"] = path
-        self.player.close()
+        self._saved_pitch_shift = semitones
         playback_error = None
+        self.player.close()
         try:
             self.player.load(self.track_states, self.audio_info.duration)
             self.player.seek(min(self._pitch_resume_position, self.audio_info.duration))
@@ -824,21 +859,19 @@ class MainWindow(Gtk.ApplicationWindow):
         self._update_start_state()
         self._set_pitch_controls(True)
         if playback_error:
-            self._set_status("Tonalidad aplicada", f"La reproducción no está disponible: {playback_error}", "REVISAR", pending=True)
+            self._set_status("Tonalidad guardada", f"La reproducción no está disponible: {playback_error}", "REVISAR", pending=True)
         else:
-            self._set_status("Tonalidad aplicada", f"Todas las pistas están en {self._pitch_text()}", "LISTO")
+            self._set_status("Tonalidad guardada", f"MP3 de las pistas guardados en {self._pitch_text()}", "LISTO")
         return False
 
-    def _pitch_error(self, detail: str) -> bool:
-        self.pitch_shift = self._pitch_previous
-        self._set_pitch_display()
+    def _pitch_save_error(self, detail: str) -> bool:
         self._busy = False
         self.progress.set_visible(False)
         self.youtube_button.set_sensitive(True)
         self.export_button.set_sensitive(True)
         self._update_start_state()
         self._set_pitch_controls(True)
-        self._set_status("No se pudo cambiar la tonalidad", detail, "REVISAR", pending=True)
+        self._set_status("No se pudo guardar la tonalidad", detail, "REVISAR", pending=True)
         return False
 
     def _export_mix(self, _button) -> None:

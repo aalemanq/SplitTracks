@@ -382,6 +382,13 @@ scale slider {
   color: @mint;
 }
 
+.tone-card button.primary-action {
+  min-height: 34px;
+  padding: 0 13px;
+  border-radius: 10px;
+  font-size: 11px;
+}
+
 .tone-value {
   color: @mint;
   font-size: 13px;

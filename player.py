@@ -14,6 +14,8 @@ class MixerPlayer:
         Gst.init(None)
         self.pipeline: Gst.Pipeline | None = None
         self.volumes: list[Gst.Element] = []
+        self.pitch_effects: list[Gst.Element] = []
+        self.pitch_supported = Gst.ElementFactory.find("pitch") is not None
         self.duration = 0.0
         self.on_error = on_error
         self.on_eos = on_eos
@@ -36,6 +38,7 @@ class MixerPlayer:
             raise RuntimeError("No se pudo conectar el mezclador de audio.")
 
         self.volumes = []
+        self.pitch_effects = []
         for index, stem in enumerate(stems):
             source = Gst.ElementFactory.make("filesrc", f"source-{index}")
             decoder = Gst.ElementFactory.make("decodebin", f"decoder-{index}")
@@ -43,18 +46,26 @@ class MixerPlayer:
             audio_convert = Gst.ElementFactory.make("audioconvert", f"convert-{index}")
             audio_resample = Gst.ElementFactory.make("audioresample", f"resample-{index}")
             volume = Gst.ElementFactory.make("volume", f"volume-{index}")
-            if not all((source, decoder, queue, audio_convert, audio_resample, volume)):
+            pitch = Gst.ElementFactory.make("pitch", f"pitch-{index}") if self.pitch_supported else None
+            if not all((source, decoder, queue, audio_convert, audio_resample, volume)) or (self.pitch_supported and pitch is None):
                 raise RuntimeError("GStreamer no tiene soporte para decodificar este audio.")
             source.set_property("location", str(stem["path"]))
             volume.set_property("volume", 0.0)
-            for element in (source, decoder, queue, audio_convert, audio_resample, volume):
+            elements = (source, decoder, queue, audio_convert, audio_resample, pitch, volume) if pitch else (source, decoder, queue, audio_convert, audio_resample, volume)
+            for element in elements:
                 pipeline.add(element)
             if not source.link(decoder):
                 raise RuntimeError("No se pudo abrir una pista separada.")
             decoder.connect("pad-added", self._on_pad_added, queue)
             if not queue.link(audio_convert) or not audio_convert.link(audio_resample):
                 raise RuntimeError("No se pudo preparar una pista del mezclador.")
-            if not audio_resample.link(volume) or not volume.link(mixer):
+            if pitch:
+                if not audio_resample.link(pitch) or not pitch.link(volume):
+                    raise RuntimeError("No se pudo preparar el cambio de tonalidad en directo.")
+                self.pitch_effects.append(pitch)
+            elif not audio_resample.link(volume):
+                raise RuntimeError("No se pudo conectar una pista del mezclador.")
+            if not volume.link(mixer):
                 raise RuntimeError("No se pudo conectar una pista al mezclador.")
             self.volumes.append(volume)
 
@@ -117,6 +128,15 @@ class MixerPlayer:
             return 0.0
         return max(0.0, value / Gst.SECOND)
 
+    def set_pitch(self, semitones: int) -> None:
+        if not self.pitch_supported or not self.pitch_effects:
+            raise RuntimeError(
+                "Falta el plugin GStreamer de cambio de tonalidad. Instala gstreamer1.0-plugins-bad."
+            )
+        ratio = 2 ** (semitones / 12)
+        for effect in self.pitch_effects:
+            effect.set_property("pitch", ratio)
+
     def update_mix(self, stems: list[dict]) -> None:
         solo_exists = any(stem.get("solo", False) for stem in stems)
         for index, stem in enumerate(stems):
@@ -131,4 +151,5 @@ class MixerPlayer:
             self.pipeline.set_state(Gst.State.NULL)
         self.pipeline = None
         self.volumes = []
+        self.pitch_effects = []
         self.playing = False
