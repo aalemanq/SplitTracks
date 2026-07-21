@@ -25,7 +25,7 @@ El detector de acordes por audio queda disponible solo como diagnóstico opciona
 
 ### Acordes de fuentes humanas
 
-La tarjeta "Cifrado humano" busca artista y canción directamente en [Cifra Club](https://www.cifraclub.com.br/), muestra las versiones que la página ofrece y permite abrir la fuente antes de elegirla. Se valida que cada versión contenga un bloque de acordes legible, por lo que las páginas de letra, tablatura o versiones sin acordes no aparecen como opciones utilizables.
+La tarjeta "Cifrado humano" busca artista y canción directamente en [Cifra Club en español](https://www.cifraclub.com.br/?locale=es), muestra las versiones que la página ofrece y permite abrir la fuente antes de elegirla. Se valida que cada versión contenga un bloque de acordes legible, por lo que las páginas de letra, tablatura o versiones sin acordes no aparecen como opciones utilizables.
 
 Al seleccionar una versión, la app muestra sus acordes y grados en columnas de cuatro, conserva las secciones de la fuente y usa la tonalidad publicada cuando está disponible. Los botones de transposición cambian a la vez la tonalidad, los acordes, las inversiones y los grados, sin reanalizar el audio. La información se cachea durante siete días en ~/.cache/split-tracks/harmony para no repetir consultas.
 

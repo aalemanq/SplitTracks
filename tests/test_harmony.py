@@ -8,8 +8,10 @@ from harmony import (
     ChordChart,
     ChordLine,
     ChordSection,
+    CifraClubProvider,
     HarmonyCache,
     _extract_sections,
+    _parse_key,
     chord_degree,
     guess_artist_title,
     transpose_chord,
@@ -32,6 +34,25 @@ class HarmonyTest(unittest.TestCase):
         self.assertEqual(sections[0].lines[0].chords, ("G", "B", "C", "Cm"))
         self.assertEqual(sections[1].title, "Verse")
         self.assertEqual(tuple(line.chords for line in sections[1].lines), (("G",), ("B",)))
+
+    def test_translates_portuguese_source_labels(self) -> None:
+        html = "<pre>[Primeira Parte] <b>G</b>\n[Refrão] <b>C</b>\n[Ponte] <b>D</b></pre>"
+        sections = _extract_sections(BeautifulSoup(html, "html.parser"))
+        self.assertEqual(
+            tuple(section.title for section in sections),
+            ("Primera parte", "Estribillo", "Puente"),
+        )
+
+    def test_parses_labelled_spanish_key_without_matching_the_label(self) -> None:
+        self.assertEqual(_parse_key("tonalidad: G"), ("G", None))
+        self.assertEqual(_parse_key("tom: A menor"), ("A", "menor"))
+
+    def test_cifra_urls_use_spanish_locale(self) -> None:
+        provider = CifraClubProvider(HarmonyCache(Path(tempfile.mkdtemp())))
+        self.assertEqual(
+            provider._base_url("Radiohead", "Creep"),
+            "https://www.cifraclub.com.br/radiohead/creep/?locale=es",
+        )
 
     def test_transposes_chords_slash_chords_and_degrees(self) -> None:
         chart = ChordChart(

@@ -17,7 +17,7 @@ import unicodedata
 from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Iterable
-from urllib.parse import urljoin
+from urllib.parse import parse_qsl, urlencode, urljoin, urlparse, urlunparse
 
 try:
     import requests
@@ -71,7 +71,7 @@ MINOR_OFFSETS = (0, 2, 3, 5, 7, 8, 10)
 MAJOR_NUMERALS = ("I", "II", "III", "IV", "V", "VI", "VII")
 MINOR_NUMERALS = ("i", "ii", "III", "iv", "v", "VI", "VII")
 CHORD_ROOT_RE = re.compile(r"^(?P<root>[A-G](?:[#♯b♭]{1,2})?)(?P<suffix>.*)$")
-KEY_RE = re.compile(r"(?:tono|tom|key)\s*[:：]?\s*([A-G](?:[#♯b♭])?)", re.IGNORECASE)
+KEY_RE = re.compile(r"(?:tonalidad|tono|tom)\s*[:：]?\s*([A-G](?:[#♯b♭])?)", re.IGNORECASE)
 CAPO_RE = re.compile(r"(?:capo|cejilla)\s*[:：-]?\s*(?:traste\s*)?(\d+)", re.IGNORECASE)
 
 
@@ -213,7 +213,18 @@ def _note_pitch(value: str) -> int | None:
 def _parse_key(value: str | None) -> tuple[str | None, str | None]:
     if not value:
         return None, None
-    match = re.search(r"([A-G](?:[#♯b♭])?)(?:\s*(major|minor|mayor|menor|maj|min|m))?", value, re.IGNORECASE)
+    labelled = re.search(
+        r"(?:tonalidad|tono|tom|key)\s*[:：]?\s*"
+        r"([A-G](?:[#♯b♭])?)(?:\s*(major|minor|mayor|menor|maj|min|m))?",
+        value,
+        re.IGNORECASE,
+    )
+    match = labelled or re.search(
+        r"(?<![A-Za-z])([A-G](?:[#♯b♭])?)"
+        r"(?:\s*(major|minor|mayor|menor|maj|min|m))?",
+        value,
+        re.IGNORECASE,
+    )
     if not match:
         return None, None
     note = _normal_note(match.group(1))
@@ -322,23 +333,68 @@ def _parse_capo(text: str) -> int | None:
     return int(match.group(1)) if match else None
 
 
+def _translation_key(value: str) -> str:
+    normalized = unicodedata.normalize("NFKD", _clean_text(value))
+    return "".join(char for char in normalized if not unicodedata.combining(char)).casefold()
+
+
+SECTION_TRANSLATIONS = {
+    "primeira parte": "Primera parte",
+    "segunda parte": "Segunda parte",
+    "terceira parte": "Tercera parte",
+    "quarta parte": "Cuarta parte",
+    "refrão": "Estribillo",
+    "refrao": "Estribillo",
+    "coro": "Estribillo",
+    "ponte": "Puente",
+    "pré-refrão": "Preestribillo",
+    "pre-refrao": "Preestribillo",
+    "verso": "Verso",
+    "intro": "Intro",
+    "final": "Final",
+}
+
+
+def _spanish_section_title(value: str) -> str:
+    return SECTION_TRANSLATIONS.get(_translation_key(value), _clean_text(value))
+
+
+def _spanish_instrument(value: str) -> str:
+    key = _translation_key(value)
+    if key == "violao":
+        return "Guitarra"
+    if key == "guitarra":
+        return "Guitarra"
+    if key == "teclado":
+        return "Teclado"
+    if key == "baixo":
+        return "Bajo"
+    if key == "bateria":
+        return "Batería"
+    return _clean_text(value)
+
+
 def _version_label(value: str) -> str:
     clean = _clean_text(value)
-    lowered = clean.lower()
-    if "simplificada" in lowered or "simplificar cifra" in lowered:
+    lowered = _translation_key(clean)
+    if "simplificada" in lowered or "simplificar cifra" in lowered or "simplificar acordes" in lowered:
         return "Simplificada"
-    for label in ("Acustica", "Acústica", "Violao", "Violão", "Teclado"):
-        if label.lower() in lowered:
-            return "Acústica" if label.lower().startswith("ac") else ("Violão" if label.lower().startswith("viol") else "Teclado")
-    version_match = re.search(r"vers[aã]o\s+(\d+)", clean, re.IGNORECASE)
+    if "acustica" in lowered:
+        return "Acústica"
+    if "violao" in lowered:
+        return "Guitarra"
+    if "teclado" in lowered:
+        return "Teclado"
+    version_match = re.search(r"vers(?:ão|ión)\s+(\d+)", clean, re.IGNORECASE)
     if version_match:
         return f"Versión {version_match.group(1)}"
     if "indefinida" in lowered:
-        return "Indefinida"
+        return "Otra versión"
     if "principal" in lowered:
         return "Principal"
-    return clean.split(" Básico", 1)[0].split(" Intermediário", 1)[0].strip() or "Versión"
-    
+    fallback = re.split(r"\s+(?:b[aá]sico|intermedi[aá]rio)\b", clean, maxsplit=1, flags=re.IGNORECASE)[0]
+    return _spanish_instrument(fallback) or "Versión"
+
 
 def _parse_source_metadata(soup, fallback_key: str | None = None) -> tuple[str | None, str | None, int | None, str, bool]:
     text = _clean_text(soup.get_text(" ", strip=True))
@@ -348,7 +404,7 @@ def _parse_source_metadata(soup, fallback_key: str | None = None) -> tuple[str |
     instrument = ""
     marker = re.search(r"(?:instrumento|instrument|instrumento musical)\s+(.{0,70})", text, re.IGNORECASE)
     if marker:
-        instrument = marker.group(1).split("Tono", 1)[0].split("Tom", 1)[0].strip(" ·|")
+        instrument = _spanish_instrument(marker.group(1).split("Tono", 1)[0].split("Tom", 1)[0].strip(" ·|"))
     reviewed = bool(re.search(r"revisad|equipo de calidad|quality team|revised", text, re.IGNORECASE))
     return key_name, scale, capo, instrument, reviewed
 
@@ -382,7 +438,7 @@ def _extract_sections(soup) -> tuple[ChordSection, ...]:
                 title = _clean_text(section_match.group(1))
                 if not title.lower().startswith(("tab", "riff", "solo")) and title != current_title:
                     flush()
-                    current_title = title
+                    current_title = _spanish_section_title(title)
             chords = tuple(
                 _clean_text(tag.get_text(" ", strip=True))
                 for tag in line_soup.find_all("b")
@@ -413,7 +469,7 @@ def _extract_sections(soup) -> tuple[ChordSection, ...]:
             if title.lower() not in {"intro", "verso", "estribillo", "coro", "bridge", "puente"} or chords:
                 if title != current_title:
                     flush()
-                    current_title = title
+                    current_title = _spanish_section_title(title)
         if chords:
             bars = text.count("|")
             current_lines.append(ChordLine(chords, bars))
@@ -501,11 +557,19 @@ class CifraClubProvider:
     def __init__(self, cache: HarmonyCache | None = None):
         self.cache = cache or HarmonyCache()
 
+    @staticmethod
+    def _localized_url(url: str) -> str:
+        parsed = urlparse(url)
+        query = dict(parse_qsl(parsed.query, keep_blank_values=True))
+        query["locale"] = "es"
+        return urlunparse(parsed._replace(query=urlencode(query)))
+
     def _get(self, url: str):
         _require_web_dependencies()
+        localized_url = self._localized_url(url)
         try:
             response = requests.get(
-                url,
+                localized_url,
                 headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) SplitTracks/1.0"},
                 timeout=20,
             )
@@ -518,14 +582,14 @@ class CifraClubProvider:
         return BeautifulSoup(response.text, "html.parser")
 
     def _base_url(self, artist: str, title: str) -> str:
-        return urljoin(self.base_url, f"{_slug(artist)}/{_slug(title)}/")
+        return self._localized_url(urljoin(self.base_url, f"{_slug(artist)}/{_slug(title)}/"))
 
     def search(self, artist: str, title: str) -> tuple[ChordCandidate, ...]:
         artist = _clean_text(artist)
         title = _clean_text(title)
         if not artist or not title:
             raise HarmonyError("Escribe el artista y el título para buscar acordes.")
-        key = f"v3::{artist.lower()}::{title.lower()}"
+        key = f"v7::{artist.lower()}::{title.lower()}"
         cached = self.cache.read("search", key)
         if cached:
             return tuple(_candidate_from_dict(item) for item in cached.get("candidates", []))
@@ -548,20 +612,27 @@ class CifraClubProvider:
             reviewed=reviewed,
         )]
         seen: set[str] = {url}
+        base_parts = urlparse(url)
+        base_path = base_parts.path.rstrip("/") + "/"
         for link in soup.find_all("a", href=True):
-            href = urljoin(url, link["href"])
+            href = self._localized_url(urljoin(url, link["href"]))
             text = _clean_text(link.get_text(" ", strip=True))
             if "#" in href:
                 continue
+            href_parts = urlparse(href)
             href_path = href.lower()
+            same_song = (
+                href_parts.netloc == base_parts.netloc
+                and (href_parts.path.rstrip("/") == base_parts.path.rstrip("/") or href_parts.path.startswith(base_path))
+            )
             if any(marker in href_path for marker in ("/tabs-", "/letra", "imprimir", "guitar-pro", "partitura")):
                 continue
-            if not href.startswith(url.rstrip("/") + "/") and href.rstrip("/") != url.rstrip("/"):
+            if not same_song:
                 continue
             if href in seen or not text or text.lower() in {"letra", "lyrics"}:
                 continue
             seen.add(href)
-            version = "Principal" if href.rstrip("/") == url.rstrip("/") else _version_label(text)
+            version = "Principal" if href_parts.path.rstrip("/") == base_parts.path.rstrip("/") else _version_label(text)
             candidates.append(ChordCandidate(
                 source_id=self.source_id,
                 source_name=self.source_name,
@@ -589,7 +660,8 @@ class CifraClubProvider:
         return tuple(candidates)
 
     def fetch(self, candidate: ChordCandidate) -> ChordChart:
-        cached = self.cache.read("chart", candidate.url)
+        chart_key = f"v5::{candidate.url}::{candidate.version}"
+        cached = self.cache.read("chart", chart_key)
         if cached:
             return _chart_from_dict(cached)
         soup = self._get(candidate.url)
@@ -612,7 +684,7 @@ class CifraClubProvider:
             instrument=instrument or candidate.instrument,
             sections=sections,
         )
-        self.cache.write("chart", candidate.url, _chart_to_dict(chart))
+        self.cache.write("chart", chart_key, _chart_to_dict(chart))
         return chart
 
 
