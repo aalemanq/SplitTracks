@@ -59,8 +59,8 @@ Después:
 
 ## Flujo
 
-1. Pega un enlace de YouTube y pulsa `Añadir`, o pulsa `Subir audio` para elegir un archivo local.
-2. Elige las categorías que quieres conservar; `Other` se calcula automáticamente.
+1. Pega un enlace de YouTube y pulsa Añadir, o pulsa Subir audio para elegir un archivo local. Al descargar desde YouTube, yt-dlp rellena automáticamente artista y canción; si el vídeo no publica esos metadatos, se limpian formatos habituales como Artista - Canción (Official Video) y puedes corregirlos antes de buscar.
+2. Elige las categorías que quieres conservar; Other se calcula automáticamente.
 3. Elige una carpeta de trabajo explícita.
 4. Pulsa `Separar` en la cabecera; durante el proceso se muestra el tiempo transcurrido.
 5. Escucha y ajusta cada stem con mute, solo y volumen.

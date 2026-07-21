@@ -11,6 +11,7 @@ from harmony import (
     HarmonyCache,
     _extract_sections,
     chord_degree,
+    guess_artist_title,
     transpose_chord,
 )
 
@@ -54,6 +55,27 @@ class HarmonyTest(unittest.TestCase):
         self.assertEqual(chart.degrees(1)[0].lines[0].chords, ("I", "III", "IV", "iv", "I"))
         self.assertEqual(transpose_chord("F#m7/C#", 1, key_name="E"), "Gm7/D")
         self.assertEqual(chord_degree("B", "G", "mayor"), "III")
+
+    def test_guess_artist_title_uses_metadata_and_cleans_video_tags(self) -> None:
+        self.assertEqual(
+            guess_artist_title("Radiohead - Creep (Official Video)"),
+            ("Radiohead", "Creep"),
+        )
+        self.assertEqual(
+            guess_artist_title("Creep by Radiohead [Lyrics]", fallback_artist="Radiohead"),
+            ("Radiohead", "Creep"),
+        )
+        self.assertEqual(
+            guess_artist_title("Creep Official Audio", fallback_artist="Radiohead"),
+            ("Radiohead", "Creep"),
+        )
+        self.assertEqual(
+            guess_artist_title(
+                "RAYE - WHERE IS MY HUSBAND! (Live on The Graham Norton show)",
+                fallback_artist="RAYE",
+            ),
+            ("RAYE", "WHERE IS MY HUSBAND!"),
+        )
 
     def test_cache_round_trip(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

@@ -65,6 +65,7 @@ class YoutubeDownloadResult:
     path: Path
     temporary_dir: Path
     title: str
+    artist: str = ""
 
 
 ProgressCallback = Callable[[float, str], None]
@@ -183,6 +184,8 @@ class SeparationEngine:
             "--no-warnings",
             "--newline",
             "--progress",
+            "--print",
+            "after_move:STEMFORGE_META:%(artist)s\t%(creator)s\t%(uploader)s\t%(title)s",
             "--extract-audio",
             "--audio-format",
             "wav",
@@ -234,9 +237,36 @@ class SeparationEngine:
             detail = self._youtube_error(output_lines)
             raise AudioEngineError(detail)
         audio_path = wav_files[0]
+        metadata_artist, metadata_title = self._youtube_metadata(output_lines)
         if progress:
             progress(0.94, "Audio descargado; comprobando el archivo")
-        return YoutubeDownloadResult(audio_path, temporary_dir, audio_path.stem)
+        return YoutubeDownloadResult(
+            audio_path,
+            temporary_dir,
+            metadata_title or audio_path.stem,
+            metadata_artist,
+        )
+
+    @staticmethod
+    def _youtube_metadata(lines: list[str]) -> tuple[str, str]:
+        prefix = "STEMFORGE_META:"
+        for line in reversed(lines):
+            if not line.startswith(prefix):
+                continue
+            payload = line[len(prefix):]
+            fields = payload.split("\t", 3)
+            if len(fields) != 4:
+                fields = payload.split("\\t", 3)
+            if len(fields) != 4:
+                continue
+
+            def useful(value: str) -> str:
+                value = value.strip()
+                return "" if value.upper() in {"", "NA", "N/A", "NONE", "UNKNOWN"} else value
+
+            artist = useful(fields[0]) or useful(fields[1]) or useful(fields[2])
+            return artist, useful(fields[3])
+        return "", ""
 
     @staticmethod
     def _find_ytdlp() -> Path | None:

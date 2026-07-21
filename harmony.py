@@ -616,12 +616,70 @@ class CifraClubProvider:
         return chart
 
 
-def guess_artist_title(value: str) -> tuple[str, str]:
-    """Best effort split for YouTube titles such as ``Artist - Song``."""
-    cleaned = _clean_text(Path(value).stem)
-    for separator in (" - ", " – ", " — ", " | "):
+_VIDEO_TAG_RE = re.compile(
+    r"(?:official|audio|music|lyric|lyrics|video|visualizer|live|"
+    r"remaster(?:ed)?|version|performance|session|hd|4k|topic|"
+    r"subtit(?:led|les?)|full album)",
+    re.IGNORECASE,
+)
+
+
+def _clean_video_title(value: str) -> str:
+    cleaned = _clean_text(value).strip(" -_|")
+    if cleaned.lower().endswith((".wav", ".mp3", ".m4a", ".flac", ".ogg")):
+        cleaned = _clean_text(Path(cleaned).stem)
+
+    changed = True
+    while changed:
+        changed = False
+        matches = list(re.finditer(r"\(([^()]*)\)|\[([^\]]*)\]", cleaned))
+        for match in reversed(matches):
+            content = match.group(1) or match.group(2) or ""
+            if _VIDEO_TAG_RE.search(content):
+                cleaned = f"{cleaned[:match.start()]} {cleaned[match.end():]}".strip(" -_|")
+                changed = True
+                break
+
+    cleaned = re.sub(
+        r"\s*(?:[-|:]\s*)?(?:official(?:\s+(?:music|audio))?\s+video|official\s+audio|"
+        r"lyrics?|visualizer|audio|video|live|remastered?|hd|4k)\s*$",
+        "",
+        cleaned,
+        flags=re.IGNORECASE,
+    )
+    return _clean_text(cleaned).strip(" -_|")
+
+
+def _normalise_title_piece(value: str) -> str:
+    return _clean_text(value).casefold().replace("–", "-").replace("—", "-")
+
+
+def guess_artist_title(value: str, *, fallback_artist: str = "") -> tuple[str, str]:
+    """Split common YouTube title formats using yt-dlp metadata when available."""
+    cleaned = _clean_video_title(value)
+    fallback_artist = _clean_text(fallback_artist)
+    separators = (" - ", " – ", " — ", " | ")
+    parsed: tuple[str, str] | None = None
+    for separator in separators:
         if separator in cleaned:
-            artist, title = cleaned.split(separator, 1)
-            if artist.strip() and title.strip():
-                return artist.strip(), title.strip()
-    return "", cleaned
+            left, right = cleaned.split(separator, 1)
+            if left.strip() and right.strip():
+                parsed = (left.strip(), right.strip())
+                break
+
+    by_match = re.match(r"^(.+?)\s+\bby\b\s+(.+)$", cleaned, re.IGNORECASE)
+    if by_match:
+        parsed = (by_match.group(2).strip(), by_match.group(1).strip())
+
+    if parsed:
+        left, right = parsed
+        if fallback_artist:
+            fallback_normalised = _normalise_title_piece(fallback_artist)
+            if _normalise_title_piece(left) == fallback_normalised:
+                return fallback_artist, right
+            if _normalise_title_piece(right) == fallback_normalised:
+                return fallback_artist, left
+            return fallback_artist, right
+        return left, right
+
+    return fallback_artist, cleaned

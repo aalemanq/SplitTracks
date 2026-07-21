@@ -903,7 +903,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.progress.set_visible(False)
         self.youtube_temp_dir = result.temporary_dir
         self._load_audio(str(result.path), keep_youtube_temp=True)
-        artist, title = guess_artist_title(result.title)
+        artist, title = guess_artist_title(result.title, fallback_artist=result.artist)
         self.harmony_artist_entry.set_text(artist)
         self.harmony_title_entry.set_text(title)
         self.sidebar_status.set_text(f"Audio descargado: {result.title}")
