@@ -106,7 +106,7 @@ headerbar windowcontrols button image {
 
 .brand-subtitle {
   color: @muted;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 750;
   letter-spacing: 1px;
 }
@@ -142,20 +142,20 @@ button.header-action {
 .header-extract-label {
   margin-right: 2px;
   color: @muted;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 850;
   letter-spacing: 0.8px;
 }
 
 button.header-stem-badge {
-  min-width: 36px;
+  min-width: 0;
   min-height: 36px;
-  padding: 0;
+  padding: 0 11px;
   border-radius: 10px;
   background: @surface;
   color: @muted;
   font-size: 13px;
-  font-weight: 850;
+  font-weight: 800;
 }
 
 button.header-stem-badge:hover,
@@ -203,7 +203,7 @@ button.header-split-action:disabled {
 
 .header-status-label {
   color: @muted;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 800;
   letter-spacing: 0.6px;
 }
@@ -217,7 +217,7 @@ button.header-split-action:disabled {
 
 .header-capability {
   color: @muted;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -258,7 +258,7 @@ button.header-split-action:disabled {
 
 .eyebrow {
   color: @cyan;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 850;
   letter-spacing: 1.2px;
 }
@@ -272,7 +272,7 @@ button.header-split-action:disabled {
 .page-subtitle,
 .helper {
   color: @muted;
-  font-size: 12px;
+  font-size: 14px;
   line-height: 1.45;
 }
 
@@ -298,7 +298,7 @@ button.header-split-action:disabled {
 
 .card-caption {
   color: @muted;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 button {
@@ -308,7 +308,7 @@ button {
   border-radius: 9px;
   background: @surface-raised;
   color: @ink;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -329,7 +329,7 @@ button:disabled {
 
 .button-label {
   color: inherit;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 750;
 }
 
@@ -339,7 +339,7 @@ button.primary-action {
   border-radius: 11px;
   background: @green;
   color: #f9f6e8;
-  font-size: 12px;
+  font-size: 14px;
   font-weight: 850;
 }
 
@@ -368,7 +368,7 @@ button.compact-action {
   min-height: 27px;
   padding: 0 8px;
   border-radius: 8px;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .source-card {
@@ -419,7 +419,7 @@ image.drop-icon {
 
 .metric-label {
   color: @muted;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 900;
   letter-spacing: 1px;
 }
@@ -435,7 +435,7 @@ image.drop-icon {
 .metric-detail {
   min-width: 0;
   color: @dim;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 700;
 }
 
@@ -531,7 +531,7 @@ entry placeholder {
 
 .status-detail {
   color: @muted;
-  font-size: 11px;
+  font-size: 13px;
   line-height: 1.35;
 }
 
@@ -540,7 +540,7 @@ entry placeholder {
   border-radius: 15px;
   background: @green-soft;
   color: #b5c95b;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 850;
   letter-spacing: 0.6px;
 }
@@ -607,7 +607,7 @@ progressbar progress {
   min-height: 33px;
   padding: 0 12px;
   border-radius: 9px;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .player-card {
@@ -621,13 +621,13 @@ progressbar progress {
 
 .processing-elapsed {
   color: @cyan;
-  font-size: 10px;
+  font-size: 14px;
   font-variant: tabular-nums;
 }
 
 .time-label {
   color: @muted;
-  font-size: 10px;
+  font-size: 14px;
   font-variant: tabular-nums;
 }
 
@@ -684,7 +684,7 @@ scale slider {
 
 .section-note {
   color: @muted;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .extract-card {
@@ -730,24 +730,24 @@ scale slider {
 
 .other-info-title {
   color: @ink;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 850;
 }
 
 .other-info-copy {
   color: @muted;
-  font-size: 9px;
+  font-size: 13px;
 }
 
 .category-name {
   color: @ink;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 850;
 }
 
 .category-note {
   color: @muted;
-  font-size: 9px;
+  font-size: 13px;
 }
 
 .category-vocals { background: @magenta-soft; }
@@ -851,7 +851,7 @@ checkbutton.category-check:disabled {
 
 .chord-placeholder {
   color: @muted;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .track-row {
@@ -893,13 +893,13 @@ checkbutton.category-check:disabled {
 
 .track-kind {
   color: @muted;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .track-value {
   min-width: 42px;
   color: @muted;
-  font-size: 10px;
+  font-size: 14px;
   font-variant: tabular-nums;
 }
 
@@ -911,7 +911,7 @@ checkbutton.category-check:disabled {
   border-radius: 8px;
   background: @surface-raised;
   color: @cyan;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 900;
 }
 
@@ -929,7 +929,7 @@ checkbutton.category-check:disabled {
   border-radius: 10px;
   background: @surface-raised;
   color: @muted;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 850;
 }
 
@@ -977,7 +977,7 @@ checkbutton.category-check:disabled {
 
 .empty-copy {
   color: @muted;
-  font-size: 11px;
+  font-size: 13px;
 }
 
 .license-note {
@@ -985,7 +985,7 @@ checkbutton.category-check:disabled {
   border-radius: 10px;
   background: @surface;
   color: @muted;
-  font-size: 9px;
+  font-size: 13px;
 }
 
 .harmony-source-panel {
@@ -1002,7 +1002,7 @@ checkbutton.category-check:disabled {
 
 .harmony-status {
   color: @cyan;
-  font-size: 10px;
+  font-size: 14px;
 }
 
 .harmony-candidate-row {
@@ -1020,13 +1020,13 @@ checkbutton.category-check:disabled {
 
 .harmony-candidate-title {
   color: @ink;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 850;
 }
 
 .harmony-candidate-detail {
   color: @muted;
-  font-size: 9px;
+  font-size: 13px;
 }
 
 .chord-line-flow {
@@ -1036,7 +1036,7 @@ checkbutton.category-check:disabled {
 .chord-section-title {
   margin-top: 5px;
   color: @muted;
-  font-size: 9px;
+  font-size: 13px;
   font-weight: 900;
   letter-spacing: 0.8px;
   text-transform: uppercase;
@@ -1049,7 +1049,7 @@ button.cancel-action {
   border-radius: 9px;
   background: @red-soft;
   color: #ffd9d4;
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 850;
 }
 

@@ -309,14 +309,14 @@ class MainWindow(Gtk.ApplicationWindow):
         extract.add_css_class("header-extract")
         for key in ("vocals", "drums", "bass", "guitar", "piano"):
             display_name, _kind, _color = STEM_LABELS[key]
-            toggle = Gtk.ToggleButton(label=BADGE_LETTERS[key])
+            toggle = Gtk.ToggleButton(label=display_name)
             toggle.add_css_class("header-stem-badge")
             toggle.add_css_class(f"header-stem-{key}")
             toggle.set_tooltip_text(f"Conservar {display_name}")
             toggle.connect("toggled", lambda button, selected_key=key: self._header_extract_toggled(selected_key, button))
             self.header_extract_buttons[key] = toggle
             extract.append(toggle)
-        other_toggle = Gtk.Button(label="O")
+        other_toggle = Gtk.Button(label="Other")
         other_toggle.add_css_class("header-stem-badge")
         other_toggle.set_sensitive(False)
         other_toggle.set_tooltip_text("Other se calcula automáticamente")
