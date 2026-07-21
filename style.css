@@ -349,16 +349,14 @@ button.primary-action:disabled {
 }
 
 button.secondary-action,
-button.compact-action,
-button.folder-button {
+button.compact-action {
   border-color: @line-strong;
   background: @surface-raised;
   color: @ink;
 }
 
 button.secondary-action:hover,
-button.compact-action:hover,
-button.folder-button:hover {
+button.compact-action:hover {
   background: @cyan-soft;
 }
 
@@ -367,11 +365,6 @@ button.compact-action {
   padding: 0 8px;
   border-radius: 8px;
   font-size: 10px;
-}
-
-button.folder-button {
-  min-height: 31px;
-  padding: 0 9px;
 }
 
 .source-card {
@@ -809,12 +802,6 @@ checkbutton.category-check-other:checked check { border-color: @green; backgroun
 
 checkbutton.category-check:disabled {
   opacity: 0.65;
-}
-
-.folder-path {
-  color: #a9c66a;
-  font-size: 12px;
-  font-weight: 700;
 }
 
 .chord-panels {

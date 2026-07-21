@@ -13,7 +13,7 @@ El nombre visible actual es **Split Tracks**. El repositorio remoto es `git@gith
 3. `ffprobe` obtiene duración, formato, frecuencia, canales y layout. La mezcla debe ser estéreo de dos canales.
 4. FFmpeg + NumPy calculan BPM, tonalidad estimada, escala, LUFS, pico, dinámica, estabilidad/confianza y espectro. Es análisis auxiliar y best-effort.
 5. Si YouTube entrega artista y título, se buscan acordes automáticamente en Cifra Club y se carga la primera versión válida. Las demás versiones quedan disponibles para seleccionar manualmente. Para un archivo local sin artista hay que introducir artista/canción.
-6. El usuario elige carpeta de trabajo y categorías. `Other` se construye como complemento del `other` de Demucs más las categorías no seleccionadas.
+6. El usuario elige las categorías deseadas; `Other` se construye como complemento del `other` de Demucs más las categorías no seleccionadas. La carpeta de salida es `~/Split Tracks` por defecto (configurable mediante `default_output_folder()` en `app.py`).
 7. Separar ejecuta `htdemucs_6s` en CPU y produce `Voces`, `Batería completa`, `Bajo`, `Guitarra`, `Piano y teclados` y `Other` en WAV PCM.
 8. El mixer GStreamer reproduce todos los stems con un reloj común. Cada pista tiene volumen, Mute, Solo y exportación MP3 individual.
 9. `−`, `+` y `Original` hacen transposición en vivo de la preescucha y del cifrado mostrado. No hay botón Guardar de tonalidad ni se crean WAV transpuestos.
@@ -66,7 +66,7 @@ Tema dark/solarized con paneles GTK. Los iconos de instrumento están en `assets
 - La entrada debe ser estéreo; no implementes downmix silencioso sin decisión de producto.
 - El cifrado humano es aproximado a la grabación y depende de la versión publicada. No se debe afirmar sincronización exacta con el audio si la fuente no la publica.
 - Cifra Club es la fuente actual. Ultimate Guitar queda como proveedor futuro independiente; no mezcles fuentes ni hagas scraping indiscriminado de Google sin una decisión explícita.
-- La app no necesita biblioteca: los resultados se conservan en la carpeta de trabajo elegida y los archivos originales permanecen en su ubicación.
+- La app no necesita biblioteca: los resultados se conservan en `~/Split Tracks` (o la carpeta que defina `default_output_folder()`) y los archivos originales permanecen en su ubicación.
 - La aplicación debe poder cancelar análisis/separación/exportación y no dejar yt-dlp, FFmpeg o Demucs ejecutándose tras cerrar.
 
 ## Futuras mejoras coherentes

@@ -37,7 +37,7 @@ Al seleccionar una versión, la app muestra sus acordes y grados en columnas de 
 
 Esta primera integración prioriza una fuente estable y revisada. Ultimate Guitar queda como siguiente proveedor independiente, porque sus páginas y mecanismos de carga cambian con frecuencia; no se mezclan datos de varios sitios ni se inventan compases cuando la fuente no los publica. La app conserva el enlace de cada versión para comprobarla manualmente.
 
-La cabecera concentra ahora la URL de YouTube, la apertura de archivos locales, los accesos rápidos por stem y el botón Separar. La columna lateral queda reservada para la carpeta de trabajo y el análisis musical, con una lectura más amplia de sus metadatos y acordes.
+La cabecera concentra ahora la URL de YouTube, la apertura de archivos locales, los accesos rápidos por stem y el botón Separar. La columna lateral queda reservada para el análisis musical, con una lectura más amplia de sus metadatos y acordes.
 
 ## Ejecutar en Ubuntu 24.04.4 LTS
 
@@ -67,7 +67,7 @@ Después:
 
 1. Pega un enlace de YouTube y pulsa Añadir, o pulsa Subir audio para elegir un archivo local. Al descargar desde YouTube, yt-dlp rellena automáticamente artista y canción; si el vídeo no publica esos metadatos, se limpian formatos habituales como Artista - Canción (Official Video) y puedes corregirlos antes de buscar.
 2. Elige las categorías que quieres conservar; Other se calcula automáticamente.
-3. Elige una carpeta de trabajo explícita.
+3. Las separaciones se guardan automáticamente en `~/Split Tracks`.
 4. Pulsa `Separar` en la cabecera; durante el proceso se muestra el tiempo transcurrido.
 5. Escucha y ajusta cada stem con mute, solo y volumen.
 6. Usa `Exportar mezcla MP3` para crear `Split Tracks - mezcla.mp3`; el estado final indica la carpeta y el nombre exacto del archivo guardado.

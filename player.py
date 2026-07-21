@@ -14,6 +14,7 @@ class MixerPlayer:
         Gst.init(None)
         self.pipeline: Gst.Pipeline | None = None
         self.volumes: list[Gst.Element] = []
+        self.master_volume: Gst.Element | None = None
         self.pitch_effects: list[Gst.Element] = []
         self.pitch_supported = Gst.ElementFactory.find("pitch") is not None
         self.duration = 0.0
@@ -25,20 +26,22 @@ class MixerPlayer:
         self.close()
         pipeline = Gst.Pipeline.new("stemforge-single-clock")
         mixer = Gst.ElementFactory.make("audiomixer", "mixer")
+        self.master_volume = Gst.ElementFactory.make("volume", "master-volume")
         pitch = Gst.ElementFactory.make("pitch", "master-pitch") if self.pitch_supported else None
         convert = Gst.ElementFactory.make("audioconvert", "master-convert")
         resample = Gst.ElementFactory.make("audioresample", "master-resample")
         sink = Gst.ElementFactory.make("autoaudiosink", "master-sink")
-        if not all((pipeline, mixer, convert, resample, sink)) or (self.pitch_supported and pitch is None):
+        if not all((pipeline, mixer, self.master_volume, convert, resample, sink)) or (self.pitch_supported and pitch is None):
             raise RuntimeError("GStreamer no tiene los elementos de audio necesarios.")
-        elements = (mixer, pitch, convert, resample, sink) if pitch else (mixer, convert, resample, sink)
+        elements = (mixer, self.master_volume, pitch, convert, resample, sink) if pitch else (mixer, self.master_volume, convert, resample, sink)
         for element in elements:
             pipeline.add(element)
+        self.master_volume.set_property("volume", 1.0)
         if pitch:
-            if not mixer.link(pitch) or not pitch.link(convert):
+            if not mixer.link(self.master_volume) or not self.master_volume.link(pitch) or not pitch.link(convert):
                 raise RuntimeError("No se pudo preparar el cambio de tonalidad en directo.")
             self.pitch_effects = [pitch]
-        elif not mixer.link(convert):
+        elif not mixer.link(self.master_volume) or not self.master_volume.link(convert):
             raise RuntimeError("No se pudo conectar el mezclador de audio.")
         if not convert.link(resample) or not resample.link(sink):
             raise RuntimeError("No se pudo conectar la salida de audio.")
@@ -134,6 +137,10 @@ class MixerPlayer:
         ratio = 2 ** (semitones / 12)
         for effect in self.pitch_effects:
             effect.set_property("pitch", ratio)
+
+    def set_master_volume(self, volume: float) -> None:
+        if self.master_volume:
+            self.master_volume.set_property("volume", max(0.0, min(1.5, float(volume))))
 
     def update_mix(self, stems: list[dict]) -> None:
         solo_exists = any(stem.get("solo", False) for stem in stems)

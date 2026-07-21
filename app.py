@@ -25,6 +25,10 @@ from player import MixerPlayer
 APP_NAME = "Split Tracks"
 ICON_DIR = Path(__file__).with_name("assets") / "icons"
 
+
+def default_output_folder() -> Path:
+    return Path.home() / "Split Tracks"
+
 TRACK_ASSETS = {
     "Voces": "vocals.svg",
     "Batería completa": "drums.svg",
@@ -218,7 +222,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.harmony_chart: ChordChart | None = None
         self.harmony_candidates: tuple[ChordCandidate, ...] = ()
         self._harmony_busy = False
-        self.output_folder: Path | None = None
+        self.output_folder: Path = default_output_folder()
         self.result: SeparationResult | None = None
         self.track_states: list[dict] = []
         self.cancel_event: threading.Event | None = None
@@ -631,24 +635,6 @@ class MainWindow(Gtk.ApplicationWindow):
         body.set_margin_end(20)
         scroll.set_child(body)
 
-        output_card = self._card()
-        output_card.add_css_class("output-card")
-        output_heading = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        output_heading.append(ui_icon("folder-open-symbolic", 17))
-        output_heading.append(label("Carpeta de trabajo", "card-title"))
-        output_card.append(output_heading)
-        output_card.append(label("Las pistas se mantienen en WAV para reproducir y mezclar rápido; los MP3 se exportan cuando los pides.", "card-caption", wrap=True))
-        folder_row = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        self.folder_label = label("Ninguna carpeta elegida", "folder-path")
-        self.folder_label.set_ellipsize(3)
-        self.folder_label.set_hexpand(True)
-        folder_row.append(self.folder_label)
-        folder_button = icon_button("Elegir", "folder-open-symbolic", "folder-button")
-        folder_button.connect("clicked", self._choose_folder)
-        folder_row.append(folder_button)
-        output_card.append(folder_row)
-        body.append(output_card)
-
         self.file_card = self._card()
         self.file_card.add_css_class("analysis-file-card")
         self.file_card.set_visible(False)
@@ -746,7 +732,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self.track_checks["other"] = other_check
         self._sync_header_extract_buttons()
 
-        self.sidebar_status = label("Selecciona un audio y una carpeta para comenzar.", "helper", wrap=True)
+        self.sidebar_status = label("Selecciona un audio para comenzar.", "helper", wrap=True)
         self.sidebar_status.set_visible(False)
 
         return sidebar
@@ -851,6 +837,17 @@ class MainWindow(Gtk.ApplicationWindow):
         self.play_button.connect("clicked", lambda *_: self._toggle_play())
         self._set_play_icon(False)
         transport.append(self.play_button)
+
+        vol_box = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=4)
+        vol_box.append(ui_icon("audio-volume-high-symbolic", 15))
+        self.master_volume_scale = Gtk.Scale.new_with_range(Gtk.Orientation.HORIZONTAL, 0.0, 1.5, 0.01)
+        self.master_volume_scale.set_value(1.0)
+        self.master_volume_scale.set_draw_value(False)
+        self.master_volume_scale.set_size_request(110, -1)
+        self.master_volume_scale.set_tooltip_text("Volumen general")
+        self.master_volume_scale.connect("value-changed", self._master_volume_changed)
+        vol_box.append(self.master_volume_scale)
+        transport.append(vol_box)
 
         player_card.append(transport)
         content.append(player_card)
@@ -1064,26 +1061,14 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_chord_panels(analysis)
         if info.channels == 2:
             self._set_status("Mezcla lista", "Estéreo detectado · Demucs puede preparar seis categorías", "LISTO")
-            self.sidebar_status.set_text("Elige una carpeta de trabajo y pulsa separar.")
+            self.sidebar_status.set_text("Pulsa separar para extraer las pistas.")
         else:
             self._set_status("Necesito una mezcla estéreo", "El motor Demucs actual trabaja con 2 canales", "REVISAR", pending=True)
             self.sidebar_status.set_text("Este build necesita una entrada estéreo para separar seis categorías reales.")
         self._update_start_state()
         return False
 
-    def _choose_folder(self, _button) -> None:
-        dialog = Gtk.FileDialog(title="Elegir carpeta de trabajo")
-        dialog.select_folder(self, None, self._folder_dialog_done)
 
-    def _folder_dialog_done(self, dialog, result) -> None:
-        try:
-            selected = dialog.select_folder_finish(result)
-        except GLib.Error:
-            return
-        if selected and selected.get_path():
-            self.output_folder = Path(selected.get_path()).expanduser().resolve()
-            self.folder_label.set_text(str(self.output_folder))
-            self._update_start_state()
 
     def _sync_header_extract_buttons(self) -> None:
         if not self.header_extract_buttons or not self.track_checks:
@@ -1196,6 +1181,7 @@ class MainWindow(Gtk.ApplicationWindow):
             self.track_list.append(TrackRow(index, state, self._track_changed, self._export_track))
         try:
             self.player.load(self.track_states, self.audio_info.duration)
+            self.player.set_master_volume(self.master_volume_scale.get_value())
         except Exception as exc:
             self._set_status("Pistas preparadas", f"La reproducción no está disponible: {exc}", "REVISAR", pending=True)
         self.timeline.set_range(0, max(0.1, self.audio_info.duration))
@@ -1227,6 +1213,9 @@ class MainWindow(Gtk.ApplicationWindow):
         self.player.stop()
         self._set_play_icon(False)
         self._set_timeline(0)
+
+    def _master_volume_changed(self, scale) -> None:
+        self.player.set_master_volume(scale.get_value())
 
     def _timeline_changed(self, scale) -> None:
         if not self._updating_timeline and self.result:
