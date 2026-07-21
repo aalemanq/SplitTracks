@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""A single-clock GStreamer mixer for generated StemForge stems."""
+"""A single-clock GStreamer mixer for generated Split Tracks stems."""
 
 from __future__ import annotations
 

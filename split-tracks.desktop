@@ -1,9 +1,9 @@
 [Desktop Entry]
-Name=StemForge
+Name=Split Tracks
 Comment=Separación y mezcla de stems de audio local
 Exec=/home/aaleman/git/privados/splitmusic/run.sh
 Icon=audio-x-generic
 Terminal=false
 Type=Application
 Categories=AudioVideo;Audio;Music;
-StartupWMClass=StemForge
+StartupWMClass=SplitTracks

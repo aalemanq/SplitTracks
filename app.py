@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""StemForge — local stereo stem utility for Ubuntu."""
+"""Split Tracks — local stereo stem utility for Ubuntu."""
 
 from __future__ import annotations
 
@@ -19,7 +19,7 @@ from engine import AudioEngineError, SeparationCancelled, SeparationEngine, Sepa
 from player import MixerPlayer
 
 
-APP_NAME = "StemForge"
+APP_NAME = "Split Tracks"
 ICON_DIR = Path(__file__).with_name("assets") / "icons"
 
 TRACK_ASSETS = {
@@ -614,7 +614,7 @@ class MainWindow(Gtk.ApplicationWindow):
         content.append(self.track_list)
 
         footer = Gtk.Box(orientation=Gtk.Orientation.HORIZONTAL, spacing=8)
-        footer.append(label("STEMFORGE / UBUNTU", "eyebrow"))
+        footer.append(label("SPLIT TRACKS / UBUNTU", "eyebrow"))
         footer.append(label("·  Demucs 6s CPU  ·  Audio local  ·  MP3 320 kbps  ·  WAV interno", "section-note"))
         content.append(footer)
         return outer
@@ -1125,9 +1125,9 @@ class MainWindow(Gtk.ApplicationWindow):
         return super().close_request()
 
 
-class StemForgeApplication(Gtk.Application):
+class SplitTracksApplication(Gtk.Application):
     def __init__(self):
-        super().__init__(application_id="com.stemforge.StemForge", flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
+        super().__init__(application_id="com.splittracks.SplitTracks", flags=Gio.ApplicationFlags.DEFAULT_FLAGS)
 
     def do_activate(self) -> None:
         window = self.props.active_window
@@ -1137,7 +1137,7 @@ class StemForgeApplication(Gtk.Application):
 
 
 def main() -> int:
-    app = StemForgeApplication()
+    app = SplitTracksApplication()
     return app.run(sys.argv)
 
 

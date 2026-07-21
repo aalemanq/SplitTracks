@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Local audio operations used by StemForge, including Demucs inference."""
+"""Local audio operations used by Split Tracks, including Demucs inference."""
 
 from __future__ import annotations
 
@@ -93,7 +93,7 @@ def _run(command: list[str], *, capture_output: bool = True) -> subprocess.Compl
         )
     except FileNotFoundError as exc:
         raise AudioEngineError(
-            "No encuentro FFmpeg. Instala ffmpeg y vuelve a abrir StemForge."
+            "No encuentro FFmpeg. Instala ffmpeg y vuelve a abrir Split Tracks."
         ) from exc
 
 
@@ -276,15 +276,15 @@ class SeparationEngine:
         separator_python = self._find_separator_python()
         if not separator_python:
             raise AudioEngineError(
-                "No encuentro el entorno ML de StemForge. Ejecuta ./setup-model.sh para instalar Demucs en CPU."
+                "No encuentro el entorno ML de Split Tracks. Ejecuta ./setup-model.sh para instalar Demucs en CPU."
             )
 
         destination_path = Path(destination).expanduser().resolve()
         destination_path.mkdir(parents=True, exist_ok=True)
-        folder = destination_path / f"StemForge - {_safe_name(info.path.stem)}"
+        folder = destination_path / f"Split Tracks - {_safe_name(info.path.stem)}"
         suffix = 2
         while folder.exists():
-            folder = destination_path / f"StemForge - {_safe_name(info.path.stem)} ({suffix})"
+            folder = destination_path / f"Split Tracks - {_safe_name(info.path.stem)} ({suffix})"
             suffix += 1
         folder.mkdir(parents=True)
         raw_dir = folder / ".model-output"
@@ -385,7 +385,7 @@ class SeparationEngine:
         (folder / "PROVENANCE.json").write_text(
             json.dumps(
                 {
-                    "application": "StemForge",
+                    "application": "Split Tracks",
                     "method": MODEL_NAME,
                     "method_type": "local neural music source separation",
                     "input": str(info.path),
@@ -548,7 +548,7 @@ class SeparationEngine:
         ]
         if not active:
             raise AudioEngineError("No hay ninguna pista audible. Desactiva Mute o Solo antes de exportar.")
-        output = Path(destination) / "StemForge - mezcla.mp3"
+        output = Path(destination) / "Split Tracks - mezcla.mp3"
         inputs: list[str] = []
         filters: list[str] = []
         for index, item in enumerate(active):
@@ -605,7 +605,7 @@ class SeparationEngine:
 
     def _report(self, info: AudioInfo, folder: Path, stems: tuple[StemFile, ...], selected: set[str]) -> str:
         lines = [
-            "# Informe de separación — StemForge",
+            "# Informe de separación — Split Tracks",
             "",
             f"- Entrada: `{info.filename}`",
             f"- Duración: `{info.duration_label}`",

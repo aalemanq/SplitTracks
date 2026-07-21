@@ -1,4 +1,4 @@
-StemForge 0.3.0 — personal-use build
+Split Tracks 0.3.0 — personal-use build
 
 Runtime installed by setup-model.sh:
 - PyTorch 2.11.0+cpu

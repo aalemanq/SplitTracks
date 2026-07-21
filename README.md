@@ -1,10 +1,10 @@
-# StemForge
+# Split Tracks
 
 Aplicación de escritorio para Ubuntu que descarga audio de YouTube o carga una mezcla local, separa seis stems con Demucs en CPU, los reproduce en un mezclador sincronizado, permite transponerlos por semitonos y exporta MP3 offline.
 
 ## Separación real
 
-StemForge usa el modelo local `htdemucs_6s` de Demucs 4.1.0. Genera `Voces`, `Batería completa`, `Bajo`, `Guitarra`, `Piano y teclados` y `Other`. El modelo trabaja internamente a 44,1 kHz; StemForge convierte las salidas al muestreo y número de canales de la entrada antes de guardarlas como MP3 a 320 kbps.
+Split Tracks usa el modelo local `htdemucs_6s` de Demucs 4.1.0. Genera `Voces`, `Batería completa`, `Bajo`, `Guitarra`, `Piano y teclados` y `Other`. El modelo trabaja internamente a 44,1 kHz; Split Tracks convierte las salidas al muestreo y número de canales de la entrada antes de guardarlas como MP3 a 320 kbps.
 
 `Other` siempre se genera como complemento: suma el `Other` del modelo y todas las categorías que no hayas seleccionado. Las salidas de piano y guitarra pueden contener más filtración que voces, batería o bajo; es una limitación conocida de `htdemucs_6s`.
 
@@ -41,7 +41,7 @@ Después:
 3. Elige una carpeta de trabajo explícita.
 4. Pulsa `Separar y preparar pistas`.
 5. Escucha y ajusta cada stem con mute, solo y volumen.
-6. Usa `Exportar mezcla MP3` para crear `StemForge - mezcla.mp3`.
+6. Usa `Exportar mezcla MP3` para crear `Split Tracks - mezcla.mp3`.
 7. Pulsa `−` y `+` para preescuchar cada semitono al vuelo mientras la canción sigue sonando.
 8. Cuando te guste, pulsa `Guardar tonalidad` para crear las pistas MP3 en esa tonalidad.
 
