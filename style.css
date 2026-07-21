@@ -654,27 +654,39 @@ checkbutton.category-check:disabled {
 }
 
 .track-toggle {
-  min-width: 30px;
-  min-height: 27px;
+  min-width: 34px;
+  min-height: 34px;
   padding: 0;
   border: 1px solid @line-strong;
-  border-radius: 8px;
+  border-radius: 10px;
   background: @surface-raised;
   color: @muted;
   font-size: 10px;
   font-weight: 850;
 }
 
-.track-toggle:checked {
-  border-color: @red;
+.track-toggle.mute {
+  border-color: #733842;
   background: @red-soft;
-  color: #f08c84;
+  color: #efaaa3;
+}
+
+.track-toggle.solo {
+  border-color: #4d4e83;
+  background: #292b55;
+  color: #a7a9e8;
+}
+
+.track-toggle.mute:checked {
+  border-color: @red;
+  background: @red;
+  color: #fff7ef;
 }
 
 .track-toggle.solo:checked {
   border-color: @violet;
-  background: @violet-soft;
-  color: #a7a9e8;
+  background: @violet;
+  color: #fff7ef;
 }
 
 .empty-state {
