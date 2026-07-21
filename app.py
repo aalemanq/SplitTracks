@@ -676,6 +676,7 @@ class MainWindow(Gtk.ApplicationWindow):
         self._set_status("Pistas listas para escuchar", "Separación Demucs 6s completada", "LISTO")
         self.sidebar_status.set_text(f"Guardado en {result.output_dir}")
         self.export_button.set_sensitive(True)
+        self._set_pitch_controls(True)
         self._update_start_state()
         return False
 
