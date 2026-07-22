@@ -111,7 +111,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .track-row{display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);min-height:46px}
 .track-row:hover{border-color:var(--line-strong);background:var(--surface-raised)}
 .track-color{width:7px;height:30px;border-radius:3px;flex-shrink:0}
-.track-name{font-size:13px;font-weight:800;min-width:70px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.track-name{font-size:13px;font-weight:800;width:80px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .track-btns{display:flex;gap:2px;flex-shrink:0}
 .track-btns button{width:28px;height:28px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface-raised);color:var(--muted);font-size:10px;font-weight:850;cursor:pointer;transition:all .15s;padding:0}
 .track-btns button.muted{border-color:var(--red);background:var(--red-soft);color:#efaaa3}

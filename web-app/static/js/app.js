@@ -7,48 +7,60 @@ const STEMS = [
   {key:'piano',name:'Piano',color:'#b58900'},{key:'other',name:'Other',color:'#859900'}
 ];
 let selectedStems = new Set(STEMS.map(s=>s.key));
-
 const $ = id => document.getElementById(id);
-
 function fmtTime(sec){ const m=Math.floor(sec/60), s=Math.floor(sec%60); return `${m}:${String(s).padStart(2,'0')}`; }
 
 // ── Stem chips ──
 function buildChips(){
-  const ctr = $('stemChips'); ctr.innerHTML='';
+  const ctr=$('stemChips'); ctr.innerHTML='';
   STEMS.forEach(s=>{
-    const chip = document.createElement('div');
-    chip.className=`chip active ${s.key}`; chip.textContent=s.name;
-    chip.onclick=()=>{
-      if(selectedStems.has(s.key)){selectedStems.delete(s.key);chip.className=`chip inactive ${s.key}`;}
-      else{selectedStems.add(s.key);chip.className=`chip active ${s.key}`;}
-    };
+    const chip=document.createElement('div'); chip.className=`chip active ${s.key}`; chip.textContent=s.name;
+    chip.onclick=()=>{ if(selectedStems.has(s.key)){selectedStems.delete(s.key);chip.className=`chip inactive ${s.key}`;} else{selectedStems.add(s.key);chip.className=`chip active ${s.key}`;} };
     ctr.appendChild(chip);
   });
   $('processBtn').disabled=false;
 }
 
-// ── Import ──
+// ── Import & Process ──
 $('addUrlBtn').onclick=()=>{ const url=$('youtubeUrl').value.trim(); if(url) startJob({url}); };
 $('fileInput').onchange=()=>{ const f=$('fileInput').files[0]; if(f) startJob({file:f}); };
 
-// ── Process ──
 async function startJob({url,file}={}){
-  const form = new FormData();
-  if(file) form.append('file',file);
-  if(url) form.append('url',url);
+  const form = new FormData(); if(file) form.append('file',file); if(url) form.append('url',url);
   form.append('stems',JSON.stringify([...selectedStems]));
   $('progressPanel').hidden=false; $('studioPanel').hidden=true; $('footer').hidden=true;
   $('progressTitle').textContent='Enviando...'; $('progressPct').textContent='0%'; $('progressPhase').textContent='';
   $('cancelBtn').hidden=false; $('processBtn').disabled=true;
   _elapsedStart=Date.now(); _startElapsed();
   try{
-    const job = await API.createJob(form);
-    jobId=job.id; $('progressTitle').textContent='Procesando audio'; pollJob(jobId);
-  }catch(e){
-    $('progressTitle').textContent='Error'; $('progressPhase').textContent=e.message||'Error'; $('cancelBtn').hidden=true; _stopElapsed();
-  }
+    const job = await API.createJob(form); jobId=job.id;
+    $('progressTitle').textContent='Procesando audio';
+    // Fix 8: fetch chords in parallel while Demucs runs
+    if(url){ fetchChordsInBackground(); }
+    pollJob(jobId);
+  }catch(e){ $('progressTitle').textContent='Error'; $('progressPhase').textContent=e.message||'Error'; $('cancelBtn').hidden=true; _stopElapsed(); }
 }
 $('cancelBtn').onclick=()=>{ if(jobId){API.cancelJob(jobId);$('cancelBtn').hidden=true;$('progressPhase').textContent='Cancelando...';} };
+
+// Fix 8: load chords in background during separation
+async function fetchChordsInBackground(){
+  const url=$('youtubeUrl').value.trim();
+  if(!url) return;
+  // Extract artist/title from URL or use manual search
+  // We need artist+title for chords, so we poll for them
+  let attempts=0;
+  while(attempts<30&&jobId){
+    await new Promise(r=>setTimeout(r,2000));
+    try{
+      const j=await API.getJob(jobId);
+      if(j.artist&&j.title){
+        $('harmonyArtist').value=j.artist; $('harmonyTitle').value=j.title;
+        searchHarmony(); return;
+      }
+    }catch(e){}
+    attempts++;
+  }
+}
 
 // ── Poll ──
 async function pollJob(id){
@@ -70,36 +82,29 @@ function _stopElapsed(){ clearInterval(_elapsedTimer); $('progressElapsed').hidd
 // ── Build studio ──
 async function buildStudio(job){
   $('studioPanel').hidden=false; $('footer').hidden=false; $('exportMixBtn').disabled=false; $('exportStemsBtn').disabled=false;
-  // Meta
   let meta=[];
   if(job.bpm) meta.push(`<span class="metric-pill bpm">${Math.round(job.bpm)} BPM</span>`);
   if(job.key_name||job.chart?.key) meta.push(`<span class="metric-pill key">Tono: ${job.chart?.key||job.key_name||'?'}</span>`);
   $('studioMeta').innerHTML=meta.join(' ');
-  // Analysis panel
   buildAnalysis(job);
-  // Pitch
   $('pitchPanel').hidden=false; updatePitchDisplay();
-  // Chords
   buildChordPanels(job);
-  // Mixer
   buildMixer(job);
-  // Harmony pre-fill
-  if(job.artist){$('harmonyArtist').value=job.artist;}
-  if(job.title){$('harmonyTitle').value=job.title;}
-  if(job.artist&&job.title){searchHarmony();}
-  // Player
+  if(job.artist){$('harmonyArtist').value=job.artist;} if(job.title){$('harmonyTitle').value=job.title;}
+  if(job.artist&&job.title){ searchHarmony(); }
   for(const s of job.stems){ s.path=API.stemUrl(job.id,s.file); s.volume=1;s.mute=false;s.solo=false; }
   duration=await player.load(job.stems);
   $('timeline').max=duration;$('totalTime').textContent=fmtTime(duration);$('currentTime').textContent='0:00';
 }
 
-// ── Analysis metrics ──
+// ── Analysis metrics ── Fix 6+7: only 6 metrics, unique chord count
 function buildAnalysis(job){
-  const chordCount = job.chord_count || (job.chart?.sections?.reduce((n,s)=>n+s.lines.reduce((m,l)=>m+l.chords.length,0),0) || 0);
-  const keys=[['key_name','TONALIDAD'],['bpm','BPM'],['duration_label','DURACIÓN'],['scale','ESCALA'],['lufs','LUFS'],['dynamic_range_db','DINÁMICA'],['format_name','FORMATO'],['sample_rate_label','MUESTREO'],['channels','CANALES'],['tempo_confidence','TEMPO ESTABLE'],['key_confidence','CONFIANZA TONAL'],['chord_count','ACORDES']];
+  const allChords = job.chart?.sections?.flatMap(s=>s.lines.flatMap(l=>l.chords))||[];
+  const uniqueCount = new Set(allChords.filter(c=>c&&c!=='—')).size;
+  const keys=[['key_name','TONALIDAD'],['bpm','BPM'],['duration_label','DURACIÓN'],['scale','ESCALA'],['sample_rate_label','MUESTREO'],['chord_count','ACORDES']];
   const grid=$('metricsGrid'); grid.innerHTML='';
   keys.forEach(([k,title])=>{
-    let val = k==='chord_count'?chordCount:(job[k]!==undefined&&job[k]!==null&&job[k]!==''?job[k]:'—');
+    let val = k==='chord_count'?uniqueCount:(job[k]!==undefined&&job[k]!==null&&job[k]!==''?job[k]:'—');
     const cell=document.createElement('div'); cell.className='metric-cell';
     cell.innerHTML=`<span class="metric-label">${title}</span><span class="metric-value">${val}</span>`;
     grid.appendChild(cell);
@@ -107,26 +112,27 @@ function buildAnalysis(job){
   $('analysisPanel').hidden=false;
 }
 
-// ── Chord panels ──
+// ── Chord panels ── Fix 2: use _transposed when available
 function buildChordPanels(job){
   const ctr=$('chordPanels'); ctr.innerHTML='';
-  const chart=job.chart;
-  if(!chart||!chart.sections||chart.sections.length===0){ctr.innerHTML='<div class="chord-panel"><div class="chord-panel-title">Sin acordes</div></div>';return;}
+  const sections = job._transposed || job.chart?.sections || [];
+  if(!sections.length){ctr.innerHTML='<div class="chord-panel"><div class="chord-panel-title">Sin acordes</div></div>';return;}
   // Chords panel
   const chordsPanel=document.createElement('div'); chordsPanel.className='chord-panel';
   chordsPanel.innerHTML='<div class="chord-panel-title">Acordes de la fuente</div>';
   const chordsGrid=document.createElement('div'); chordsGrid.className='chord-grid';
-  chart.sections.forEach(sec=>{
+  sections.forEach(sec=>{
     if(sec.title){ const t=document.createElement('div'); t.className='chord-section-title'; t.textContent=sec.title; chordsGrid.appendChild(t); }
     sec.lines.forEach(line=>{ line.chords.forEach(c=>{ const chip=document.createElement('div'); chip.className='chord-chip chords'; chip.textContent=c||'—'; chordsGrid.appendChild(chip); }); });
   });
   chordsPanel.appendChild(chordsGrid); ctr.appendChild(chordsPanel);
-  // Degrees panel (if available from pitch)
-  if(job._degrees){
+  // Degrees panel
+  const degSections = job._degrees || [];
+  if(degSections.length){
     const degPanel=document.createElement('div'); degPanel.className='chord-panel';
     degPanel.innerHTML='<div class="chord-panel-title">Grados de escala</div>';
     const degGrid=document.createElement('div'); degGrid.className='chord-grid';
-    job._degrees.forEach(sec=>{
+    degSections.forEach(sec=>{
       if(sec.title){ const t=document.createElement('div'); t.className='chord-section-title'; t.textContent=sec.title; degGrid.appendChild(t); }
       sec.lines.forEach(line=>{ line.chords.forEach(d=>{ const chip=document.createElement('div'); chip.className='chord-chip degrees'; chip.textContent=d||'—'; degGrid.appendChild(chip); }); });
     });
@@ -134,13 +140,16 @@ function buildChordPanels(job){
   }
 }
 
-// ── Mixer ──
+// ── Mixer ── Fix 4: Batería completa → Batería
 function buildMixer(job){
   const mixer=$('mixer'); mixer.innerHTML='';
   job.stems.forEach((s,i)=>{
     const row=document.createElement('div'); row.className='track-row';
     const color=document.createElement('div'); color.className='track-color'; color.style.background=s.color; row.appendChild(color);
-    const name=document.createElement('div'); name.className='track-name'; name.textContent=s.name; row.appendChild(name);
+    const nameEl=document.createElement('div'); nameEl.className='track-name';
+    // Fix 4: shorten long names
+    const displayName = s.name==='Batería completa'?'Batería':s.name==='Piano y teclados'?'Piano':s.name;
+    nameEl.textContent=displayName; row.appendChild(nameEl);
     const btns=document.createElement('div'); btns.className='track-btns';
     const muteBtn=document.createElement('button'); muteBtn.textContent='M'; muteBtn.className='muted';
     muteBtn.onclick=()=>{ s.mute=!s.mute; muteBtn.classList.toggle('active',s.mute); player.setMute(i,s.mute); saveState(); };
@@ -182,11 +191,11 @@ async function searchHarmony(){
       row.onclick=()=>selectVersion(c,row);
       versions.appendChild(row);
     });
-    // Auto-select first
     selectVersion(res.candidates[0], versions.firstChild);
   }catch(e){$('harmonyStatus').textContent='Error al buscar: '+e.message;}
 }
 
+// Fix 3: fetch degrees on first load too
 async function selectVersion(candidate,row){
   document.querySelectorAll('.version-row').forEach(r=>r.classList.remove('selected'));
   if(row) row.classList.add('selected');
@@ -195,26 +204,24 @@ async function selectVersion(candidate,row){
     const res=await API.fetchChords(candidate.url);
     if(res.chart){
       jobData.chart=res.chart;
-      jobData.chord_count=res.chart.sections?res.chart.sections.reduce((n,s)=>n+s.lines.reduce((m,l)=>m+l.chords.length,0),0):0;
       $('harmonyStatus').textContent=`${res.chart.source} · ${res.chart.version} · ${res.chart.display_key||'tonalidad no indicada'}${res.chart.capo?' · capo '+res.chart.capo:''}`;
-      buildChordPanels(jobData);
-      buildAnalysis(jobData);
-      jobData._degrees = null; // reset
+      // Fix 3: also fetch degrees at pitch 0
+      try{ const tp=await API.transposeChords(candidate.url,0); jobData._transposed=tp.sections; jobData._degrees=tp.degrees; }catch(e){}
+      buildChordPanels(jobData); buildAnalysis(jobData);
       $('pitchUp').disabled=false; $('pitchDown').disabled=false; $('pitchReset').disabled=false;
     }
   }catch(e){$('harmonyStatus').textContent='Error: '+e.message;}
 }
 
-// ── Pitch ──
-$('pitchDown').onclick=()=>changePitch(-1);
-$('pitchUp').onclick=()=>changePitch(1);
-$('pitchReset').onclick=()=>changePitch(0,true);
+// ── Pitch ── Fix 1: also update audio pitch
+$('pitchDown').onclick=()=>changePitch(-1); $('pitchUp').onclick=()=>changePitch(1); $('pitchReset').onclick=()=>changePitch(0,true);
 async function changePitch(delta,reset=false){
   if(!jobData) return;
   const current=reset?0:(jobData.pitch||0)+delta;
   const semitones=Math.max(-12,Math.min(12,current));
-  jobData.pitch=semitones;
-  updatePitchDisplay();
+  jobData.pitch=semitones; updatePitchDisplay();
+  // Fix 1: set audio pitch
+  player.setPitch(semitones);
   if(jobData.chart?.url){
     try{
       const res=await API.transposeChords(jobData.chart.url,semitones);
@@ -227,9 +234,7 @@ function updatePitchDisplay(){
   const s=jobData?.pitch||0;
   if(s===0){$('pitchValue').textContent='Original · 0 semitonos';}
   else{const sign=s>0?'+':'−';$('pitchValue').textContent=`${sign}${Math.abs(s)} ${Math.abs(s)===1?'semitono':'semitonos'}`;}
-  $('pitchDown').disabled=!jobData||s<=-12;
-  $('pitchUp').disabled=!jobData||s>=12;
-  $('pitchReset').disabled=!jobData||s===0||!jobData.chart;
+  $('pitchDown').disabled=!jobData||s<=-12; $('pitchUp').disabled=!jobData||s>=12; $('pitchReset').disabled=!jobData||s===0||!jobData.chart;
 }
 
 // ── Transport ──
@@ -239,26 +244,18 @@ $('timeline').oninput=()=>{ player.seek(parseFloat($('timeline').value)); };
 $('masterVolume').oninput=()=>{ player.setMasterVolume(parseInt($('masterVolume').value)/100); };
 document.onkeydown=e=>{ if(e.code==='Space'){e.preventDefault();$('playBtn').click();} };
 
-setInterval(()=>{
-  if(player.playing){
-    const pos=player.position(); $('timeline').value=pos; $('currentTime').textContent=fmtTime(pos);
-    if(pos>=duration-0.2){player.playing=false;$('playBtn').textContent='▶';}
-  }
-},150);
+setInterval(()=>{ if(player.playing){ const pos=player.position(); $('timeline').value=pos; $('currentTime').textContent=fmtTime(pos); if(pos>=duration-0.2){player.playing=false;$('playBtn').textContent='▶';} } },150);
 
 // ── Export ──
 $('exportMixBtn').onclick=async()=>{ if(!jobId) return;
-  try{const res=await fetch(API.mixUrl(jobId),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stems:jobData.stems})});
-    const blob=await res.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mezcla.mp3'; a.click();}catch(e){alert('Error exportando mezcla');}
+  try{const res=await fetch(API.mixUrl(jobId),{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stems:jobData.stems})}); const blob=await res.blob(); const a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='mezcla.mp3'; a.click();}catch(e){alert('Error exportando mezcla');}
 };
 $('exportStemsBtn').onclick=async()=>{ if(!jobId) return;
-  try{const res=await fetch(`/api/jobs/${jobId}/export/stems`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stems:jobData.stems})});
-    const data=await res.json(); data.files.forEach(f=>{window.open(f.url,'_blank');});}catch(e){alert('Error exportando pistas');}
+  try{const res=await fetch(`/api/jobs/${jobId}/export/stems`,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({stems:jobData.stems})}); const data=await res.json(); data.files.forEach(f=>{window.open(f.url,'_blank');});}catch(e){alert('Error exportando pistas');}
 };
 
 // ── State ──
 function saveState(){ try{localStorage.setItem('splittracks_mixer',JSON.stringify(jobData?.stems?.map(s=>({name:s.name,volume:s.volume,mute:s.mute,solo:s.solo}))))}catch(e){} }
 function loadState(){ try{const d=JSON.parse(localStorage.getItem('splittracks_mixer'));if(d&&jobData) d.forEach(s=>{const stem=jobData.stems.find(ss=>ss.name===s.name);if(stem){stem.volume=s.volume||1;stem.mute=s.mute||false;stem.solo=s.solo||false;}});}catch(e){} }
 
-// ── Init ──
 buildChips();
