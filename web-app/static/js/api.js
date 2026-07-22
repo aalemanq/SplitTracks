@@ -1,35 +1,39 @@
 const API = {
   async createJob(formData) {
     const res = await fetch('/api/jobs', { method: 'POST', body: formData });
-    if (!res.ok) throw new Error((await res.text()) || 'Error');
+    if (!res.ok) throw new Error(await res.text());
     return res.json();
   },
-
-  getJob(id) {
-    return fetch(`/api/jobs/${id}`).then(r => r.json());
+  async getJob(id) {
+    const res = await fetch(`/api/jobs/${id}`);
+    return res.json();
   },
-
   cancelJob(id) {
     return fetch(`/api/jobs/${id}/cancel`, { method: 'POST' });
   },
-
-  stemMp3Url(jobId, file) {
-    return `/api/jobs/${jobId}/stems-mp3/${file}`;
-  },
-
   stemUrl(jobId, file) {
     return `/api/jobs/${jobId}/stems/${file}`;
   },
-
-  async mixDownload(jobId) {
-    const res = await fetch(`/api/jobs/${jobId}/mix`, { method: 'POST' });
-    if (!res.ok) throw new Error('Export failed');
-    const blob = await res.blob();
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'mezcla.mp3';
-    a.click();
-    URL.revokeObjectURL(url);
+  stemMp3Url(jobId, file) {
+    return `/api/jobs/${jobId}/stems-mp3/${file}`;
+  },
+  mixUrl(jobId) {
+    return `/api/jobs/${jobId}/export/mix`;
+  },
+  async searchChords(artist, title) {
+    const res = await fetch(`/api/chords/search?artist=${encodeURIComponent(artist)}&title=${encodeURIComponent(title)}`);
+    return res.json();
+  },
+  async fetchChords(url) {
+    const res = await fetch(`/api/chords/fetch?url=${encodeURIComponent(url)}`);
+    return res.json();
+  },
+  async transposeChords(url, semitones) {
+    const res = await fetch('/api/chords/transpose', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ url, semitones }),
+    });
+    return res.json();
   },
 };

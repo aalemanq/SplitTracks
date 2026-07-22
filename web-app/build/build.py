@@ -1,10 +1,7 @@
 #!/usr/bin/env python3
-"""Build standalone Split Tracks executable for macOS / Windows / Linux."""
+"""Build Split Tracks standalone executable with PyInstaller."""
 
-import os
-import shutil
-import subprocess
-import sys
+import os, shutil, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent.parent
@@ -13,88 +10,64 @@ STATIC = WEB_APP / "static"
 DIST = ROOT / "dist"
 NAME = "SplitTracks"
 
-def run(cmd, **kwargs):
-    print(f"  \033[36m{' '.join(cmd)}\033[0m")
-    subprocess.run(cmd, check=True, **kwargs)
+def run(cmd):
+    print(f"  {''.join(cmd)}")
+    subprocess.run(cmd, check=True)
 
 def main():
-    print(f"\033[1;32m=== Split Tracks Builder ===\033[0m")
-    platform = sys.platform  # 'darwin', 'win32', 'linux'
-
+    platform = sys.platform
+    print(f"Building for {platform}...")
     DIST.mkdir(exist_ok=True)
-    os.chdir(str(ROOT))
 
-    # Ensure static files are discoverable
-    print("\n[1/4] Preparing...")
-    shutil.rmtree(DIST / NAME, ignore_errors=True)
-
-    # Build with PyInstaller
-    print("\n[2/4] Building executable...")
-    add_data = f"web-app/static{os.pathsep}static"
+    sep = ";" if platform == "win32" else ":"
+    add_data = f"web-app/static{sep}static"
+    if (ROOT / "assets").exists():
+        add_data += f"{sep}assets{sep}assets"
 
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--onefile",
-        "--name", NAME,
+        "--onedir", "--name", NAME,
         f"--add-data={add_data}",
         "--distpath", str(DIST),
         "--workpath", str(DIST / "build"),
-        "--specpath", str(DIST),
-        "--clean",
-        "--noconfirm",
+        "--specpath", str(DIST), "--clean", "--noconfirm",
         str(WEB_APP / "launcher.py"),
     ]
 
-    if platform == "darwin":
-        cmd.append("--windowed")
-    elif platform == "win32":
-        cmd.append("--console")
-
     run(cmd)
 
-    # Copy ffmpeg and yt-dlp binaries
-    print("\n[3/4] Bundling tools...")
-    exe_dir = DIST / NAME if not (DIST / NAME).is_dir() else DIST
-    exe_dir = DIST
+    bundle = DIST / f"{NAME}-{platform}"
+    if bundle.exists():
+        shutil.rmtree(bundle)
+    bundle.mkdir()
 
-    if platform == "darwin":
-        # On macOS, use homebrew ffmpeg or bundled
-        ffmpeg = shutil.which("ffmpeg")
-        ffprobe = shutil.which("ffprobe")
-        ytdlp = ROOT / "bin" / "yt-dlp"
-        if ytdlp.exists():
-            shutil.copy2(ytdlp, DIST / "yt-dlp")
-    elif platform == "win32":
-        ytdlp = ROOT / "bin" / "yt-dlp.exe"
-        if ytdlp.exists():
-            shutil.copy2(ytdlp, DIST / "yt-dlp.exe")
-
-    # Copy bin directory
-    print("\n[4/4] Creating distribution bundle...")
-    _bundle = DIST / f"{NAME}-{platform}"
-    _bundle.mkdir(exist_ok=True)
-
-    executable = DIST / f"{NAME}{'.exe' if platform == 'win32' else ''}"
-    if executable.exists():
-        shutil.move(str(executable), str(_bundle / executable.name))
+    exe_dir = DIST / NAME
+    exe_name = f"{NAME}{'.exe' if platform == 'win32' else ''}"
+    shutil.move(str(exe_dir / exe_name), str(bundle / exe_name))
 
     # Copy bin tools
-    bin_dir = _bundle / "bin"
-    bin_dir.mkdir(exist_ok=True)
-    for item in (ROOT / "bin").iterdir():
-        if item.is_file():
-            shutil.copy2(item, bin_dir / item.name)
+    bin_dest = bundle / "bin"
+    bin_dest.mkdir(exist_ok=True)
+    bin_src = ROOT / "bin"
+    if bin_src.exists():
+        for item in bin_src.iterdir():
+            if item.is_file():
+                shutil.copy2(item, bin_dest / item.name)
 
-    # Create convenience launchers in root of bundle
+    # Copy .venv if exists (for demucs)
+    venv_dest = bundle / ".venv"
+    venv_src = ROOT / ".venv"
+    if venv_src.exists() and not venv_dest.exists():
+        shutil.copytree(venv_src, venv_dest, symlinks=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+
+    # Launcher
     if platform == "win32":
-        (_bundle / "run.bat").write_text(
-            '@echo off\r\nstart "" "SplitTracks.exe"\r\n', encoding="utf-8"
-        )
+        (bundle / "SplitTracks.bat").write_text('@echo off\r\nstart "" "SplitTracks.exe"\r\n')
     else:
-        (_bundle / "run.sh").write_text("#!/bin/bash\n./SplitTracks\n")
-        (_bundle / "run.sh").chmod(0o755)
+        (bundle / "SplitTracks").write_text("#!/bin/bash\ncd \"$(dirname \"$0\")\"\n./SplitTracks\n")
+        (bundle / "SplitTracks").chmod(0o755)
 
-    print(f"\n\033[1;32mDone! Bundle at: {_bundle}\033[0m")
+    print(f"\nBundle ready: {bundle}")
 
 if __name__ == "__main__":
     main()

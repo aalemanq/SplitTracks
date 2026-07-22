@@ -10,69 +10,81 @@
 
 <header id="header">
   <div class="brand">
-    <svg width="40" height="40" viewBox="0 0 48 48" class="logo">
-      <rect x="1" y="1" width="46" height="46" rx="13" fill="#062b34"/>
-      <path d="M7 28c5-12 8 8 13-5s8-5 12 1 6-4 9-9" fill="none" stroke="#2aa198" stroke-width="2.8" stroke-linecap="round"/>
-      <path d="M7 33c5-10 8 5 13-5s8-3 12 2 6-3 9-7" fill="none" stroke="#d33682" stroke-width="2.2" stroke-linecap="round"/>
-      <path d="M7 22c5-7 8 5 13-3s8-2 12 3 6-1 9-4" fill="none" stroke="#b58900" stroke-width="2" stroke-linecap="round"/>
-    </svg>
+    <svg width="40" height="40" viewBox="0 0 48 48" class="logo"><rect x="1" y="1" width="46" height="46" rx="13" fill="#062b34"/><path d="M7 28c5-12 8 8 13-5s8-5 12 1 6-4 9-9" fill="none" stroke="#2aa198" stroke-width="2.8" stroke-linecap="round"/><path d="M7 33c5-10 8 5 13-5s8-3 12 2 6-3 9-7" fill="none" stroke="#d33682" stroke-width="2.2" stroke-linecap="round"/><path d="M7 22c5-7 8 5 13-3s8-2 12 3 6-1 9-4" fill="none" stroke="#b58900" stroke-width="2" stroke-linecap="round"/></svg>
     <span class="brand-split">Split</span><span class="brand-tracks">Tracks</span>
   </div>
-  <div class="header-spacer"></div>
+  <div class="header-source">
+    <input type="text" id="youtubeUrl" placeholder="Pega aquí una URL de YouTube…" class="url-input">
+    <button id="addUrlBtn" class="btn btn-cyan">Añadir</button>
+    <span class="or-sep">o</span>
+    <label class="btn btn-outline file-label">Subir audio <input type="file" id="fileInput" accept="audio/*" hidden></label>
+  </div>
+  <div class="stem-chips" id="stemChips"></div>
+  <button id="processBtn" class="btn btn-yellow" disabled>Separar</button>
 </header>
 
 <main id="main">
-  <div id="importPanel">
-    <div class="import-card">
-      <div class="import-tabs">
-        <button class="import-tab active" data-tab="url">YouTube URL</button>
-        <button class="import-tab" data-tab="file">Archivo local</button>
+  <aside id="sidebar">
+    <div class="sidebar-section" id="harmonyPanel">
+      <div class="section-title">Cifrado humano</div>
+      <div class="section-note">Cifra Club · versiones revisadas</div>
+      <div class="harmony-search">
+        <input type="text" id="harmonyArtist" placeholder="Artista" class="harmony-input">
+        <input type="text" id="harmonyTitle" placeholder="Canción" class="harmony-input">
+        <button id="harmonySearchBtn" class="btn btn-cyan btn-sm">Buscar</button>
       </div>
-      <div class="import-content" id="importUrl">
-        <input type="text" id="youtubeUrl" placeholder="Pega aquí una URL de YouTube…">
-      </div>
-      <div class="import-content hidden" id="importFile">
-        <label class="file-drop">
-          <span class="file-drop-icon">🎵</span>
-          <span>Arrastra un archivo o haz clic para seleccionar</span>
-          <span class="file-drop-hint">MP3, WAV, FLAC — estéreo de 2 canales</span>
-          <input type="file" id="fileInput" accept="audio/*" hidden>
-        </label>
-      </div>
-      <div class="stem-select">
-        <span class="stem-select-label">Extraer:</span>
-        <div class="stem-chips" id="stemChips"></div>
-      </div>
-      <button id="processBtn" class="btn btn-process" disabled>
-        <span class="btn-process-icon">⚡</span> Procesar
-      </button>
+      <div class="harmony-status" id="harmonyStatus">Aún no se ha seleccionado una fuente.</div>
+      <div class="harmony-versions" id="harmonyVersions"></div>
     </div>
-  </div>
 
-  <div id="progressPanel" hidden>
-    <div class="progress-card">
-      <div class="progress-header">
-        <span id="progressTitle">Procesando...</span>
-        <span id="progressPercent">0%</span>
-      </div>
-      <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
-      <span class="progress-phase" id="progressPhase"></span>
-      <button id="cancelBtn" class="btn btn-outline btn-sm" hidden>Cancelar</button>
+    <div class="sidebar-section" id="analysisPanel" hidden>
+      <div class="section-title">Análisis</div>
+      <div class="metrics-grid" id="metricsGrid"></div>
     </div>
-  </div>
 
-  <div id="studioPanel" hidden>
-    <div class="studio-header">
-      <span class="studio-title">Resultado</span>
-      <span class="studio-meta" id="studioMeta"></span>
-    </div>
-    <div class="studio-body">
-      <div class="waveform-area" id="waveformArea">
-        <canvas id="waveform" class="waveform-canvas"></canvas>
+    <div class="sidebar-section" id="pitchPanel" hidden>
+      <div class="section-title">Transponer</div>
+      <div class="section-note">Cambia preescucha, tonalidad, acordes y grados en vivo</div>
+      <div class="pitch-controls">
+        <button id="pitchDown" class="btn tone-btn" disabled>−</button>
+        <span class="pitch-value" id="pitchValue">Original · 0 semitonos</span>
+        <button id="pitchUp" class="btn tone-btn" disabled>+</button>
+        <button id="pitchReset" class="btn btn-sm btn-outline" disabled>Original</button>
       </div>
-      <div class="mixer" id="mixer"></div>
     </div>
-  </div>
+  </aside>
+
+  <section id="workspace">
+    <div id="progressPanel" hidden>
+      <div class="progress-card">
+        <div class="progress-header">
+          <span id="progressTitle">Procesando...</span>
+          <span id="progressPct">0%</span>
+        </div>
+        <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
+        <div class="progress-row">
+          <span id="progressPhase" class="progress-phase"></span>
+          <span id="progressElapsed" class="progress-elapsed" hidden></span>
+          <button id="cancelBtn" class="btn btn-sm btn-outline" hidden>Cancelar</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="studioPanel" hidden>
+      <div class="studio-header">
+        <div class="studio-title">Resultado</div>
+        <div class="studio-meta" id="studioMeta"></div>
+      </div>
+      <div class="chord-panels" id="chordPanels"></div>
+      <div class="mixer-section">
+        <div class="mixer-header">
+          <span class="section-title">Pistas separadas</span>
+          <span class="section-note">Mute · Solo · Volumen</span>
+        </div>
+        <div class="mixer" id="mixer"></div>
+      </div>
+    </div>
+  </section>
 </main>
 
 <footer id="footer" hidden>
@@ -81,6 +93,10 @@
       <button id="stopBtn" class="btn btn-icon" title="Stop">⏹</button>
       <button id="playBtn" class="btn btn-play" title="Play / Pause">▶</button>
     </div>
+    <div class="volume-wrap">
+      <span class="vol-icon">🔊</span>
+      <input type="range" id="masterVolume" min="0" max="150" value="100" class="vol-slider">
+    </div>
     <div class="timeline-wrap">
       <span class="time-label" id="currentTime">0:00</span>
       <input type="range" id="timeline" min="0" max="100" value="0" class="timeline">
@@ -88,11 +104,8 @@
     </div>
   </div>
   <div class="footer-right">
-    <div class="volume-wrap">
-      <span class="vol-icon">🔊</span>
-      <input type="range" id="masterVolume" min="0" max="150" value="100" class="vol-slider">
-    </div>
     <button id="exportMixBtn" class="btn btn-green" disabled>Exportar mezcla MP3</button>
+    <button id="exportStemsBtn" class="btn btn-outline" disabled>Exportar pistas MP3</button>
   </div>
 </footer>
 
