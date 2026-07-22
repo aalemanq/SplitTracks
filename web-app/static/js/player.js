@@ -17,7 +17,7 @@ class Player {
         this.buffers[s.name] = audioBuf;
         if (audioBuf.duration > this.duration) this.duration = audioBuf.duration;
         const gain = this.ctx.createGain(); gain.connect(this.masterGain);
-        gain.gain.value = s.mute ? 0 : (s.volume || 1.0);
+        gain.gain.value = s.mute ? 0 : (s.volume ?? 1.0);
         this.gains.push({ name: s.name, node: gain });
       } catch (e) { console.warn('Error loading stem:', s.name, e); }
     }
@@ -29,7 +29,7 @@ class Player {
     for (const g of this.gains) {
       const stem = this.stems.find(s => s.name === g.name); if (!stem) continue;
       let audible = !stem.mute; if (hasSolo) audible = audible && stem.solo;
-      g.node.gain.value = audible ? (stem.volume || 1.0) : 0;
+      g.node.gain.value = audible ? (stem.volume ?? 1.0) : 0;
     }
   }
 
