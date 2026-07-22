@@ -60,13 +60,14 @@ class Player {
   _createSources(offset = 0) {
     this._stopSources();
     this.sources = [];
+    const when = this.ctx.currentTime + 0.01;
     for (const g of this.gains) {
       const buf = this.buffers[g.name];
       if (!buf) continue;
       const src = this.ctx.createBufferSource();
       src.buffer = buf;
       src.connect(g.node);
-      src.start(0, offset);
+      src.start(when, offset);
       this.sources.push(src);
     }
   }

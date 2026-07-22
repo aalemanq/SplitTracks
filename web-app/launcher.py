@@ -8,10 +8,13 @@ import webbrowser
 import threading
 from pathlib import Path
 
-import uvicorn
+WEB_APP_DIR = Path(__file__).resolve().parent
+os.chdir(str(WEB_APP_DIR))
 
-ROOT = Path(__file__).resolve().parent
-sys.path.insert(0, str(ROOT.parent))
+ROOT = WEB_APP_DIR.parent
+sys.path.insert(0, str(ROOT))
+
+import uvicorn
 
 WEB_HOST = os.environ.get("SPLITTRACKS_HOST", "127.0.0.1")
 WEB_PORT = int(os.environ.get("SPLITTRACKS_PORT", "8745"))
