@@ -15,6 +15,7 @@ from fastapi import FastAPI, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.concurrency import run_in_threadpool
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
@@ -80,30 +81,42 @@ async def create_job(
         audio_path = tmp
         artist, title = "", Path(file.filename or "audio").stem
     elif url:
-        _update(job_id, "downloading", 0.1, "Descargando YouTube...")
-        try:
-            result = engine.download_youtube(url, progress=_progress(job_id, 0.1, 0.4, "YouTube"), cancel_event=cancel)
-            audio_path = result.path
-            artist, title = guess_artist_title(result.title)
-        except SeparationCancelled:
-            _cleanup(job_id)
-            raise HTTPException(499)
-        except AudioEngineError as e:
-            _cleanup(job_id)
-            raise HTTPException(500, str(e))
+        audio_path = None
+        artist, title = "", ""
     else:
         raise HTTPException(400, "Archivo o URL requerido")
 
-    _update(job_id, "analyzing", 0.4, "Analizando...")
-    try:
-        info = engine.probe(audio_path)
-        analysis = analyze_audio(audio_path, cancel_event=cancel)
-    except Exception:
-        analysis = None
-        info = engine.probe(audio_path)
+    thread = threading.Thread(
+        target=_process_job,
+        args=(job_id, audio_path if file else None, url if not file else None, artist, title, selected, cancel, job_dir),
+        daemon=True,
+    )
+    thread.start()
 
-    _update(job_id, "separating", 0.5, "Separando con Demucs...")
+    return {"id": job_id, "status": "uploading"}
+
+
+def _process_job(job_id, audio_path, url, artist, title, selected, cancel, job_dir):
     try:
+        if url:
+            _update(job_id, "downloading", 0.1, "Descargando YouTube...")
+            result = engine.download_youtube(
+                url,
+                progress=_progress(job_id, 0.1, 0.4, "YouTube"),
+                cancel_event=cancel,
+            )
+            audio_path = result.path
+            artist, title = guess_artist_title(result.title)
+
+        _update(job_id, "analyzing", 0.4, "Analizando...")
+        try:
+            info = engine.probe(audio_path)
+            analysis = analyze_audio(audio_path, cancel_event=cancel)
+        except Exception:
+            analysis = None
+            info = engine.probe(audio_path)
+
+        _update(job_id, "separating", 0.5, "Separando con Demucs...")
         result = engine.separate(
             audio_path,
             job_dir,
@@ -111,51 +124,47 @@ async def create_job(
             progress=_progress(job_id, 0.5, 0.95, "Demucs"),
             cancel_event=cancel,
         )
+
+        stems_data = []
+        for s in result.stems:
+            stems_data.append({
+                "name": s.name,
+                "file": str(s.path.relative_to(job_dir)),
+                "color": s.color,
+                "kind": s.kind,
+            })
+
+        chart_info = {}
+        if artist and title:
+            try:
+                candidates = cifra.search(artist, title)
+                if candidates:
+                    chart = cifra.fetch(candidates[0])
+                    chart_info = {
+                        "key": chart.key_name or "",
+                        "scale": chart.scale or "",
+                        "sections": [
+                            {"title": s.title, "lines": [{"chords": l.chords} for l in s.lines]}
+                            for s in chart.sections
+                        ],
+                    }
+            except Exception:
+                pass
+
+        _update(job_id, "done", 1.0, "Listo", stems=stems_data)
+        with _job_lock:
+            job = _jobs.get(job_id)
+            if job:
+                job["bpm"] = round(analysis.bpm, 1) if analysis and analysis.bpm else 0
+                job["key"] = chart_info.get("key", analysis.key_name if analysis else "")
+                job["chord_sections"] = chart_info.get("sections", [])
+
     except SeparationCancelled:
         _cleanup(job_id)
-        raise HTTPException(499)
     except AudioEngineError as e:
-        _cleanup(job_id)
-        raise HTTPException(500, str(e))
-
-    stems_data = []
-    for s in result.stems:
-        stems_data.append({
-            "name": s.name,
-            "file": str(s.path.relative_to(job_dir)),
-            "color": s.color,
-            "kind": s.kind,
-        })
-
-    chart_info = {}
-    if artist and title:
-        try:
-            candidates = cifra.search(artist, title)
-            if candidates:
-                chart = cifra.fetch(candidates[0])
-                chart_info = {
-                    "key": chart.key_name or "",
-                    "scale": chart.scale or "",
-                    "sections": [
-                        {
-                            "title": sec.title,
-                            "lines": [{"chords": line.chords} for line in sec.lines],
-                        }
-                        for sec in chart.sections
-                    ],
-                }
-        except Exception:
-            pass
-
-    _update(job_id, "done", 1.0, "Listo", stems=stems_data)
-    return {
-        "id": job_id,
-        "status": "done",
-        "stems": stems_data,
-        "bpm": round(analysis.bpm, 1) if analysis and analysis.bpm else 0,
-        "key": chart_info.get("key", analysis.key_name if analysis else ""),
-        "chord_sections": chart_info.get("sections", []),
-    }
+        _update(job_id, "error", 0, str(e))
+    except Exception as e:
+        _update(job_id, "error", 0, f"Error: {e}")
 
 
 @app.get("/api/jobs/{job_id}")
@@ -203,7 +212,7 @@ async def mix_job(job_id: str):
         })
 
     try:
-        output, _ = engine.mix(stems_for_mix, str(job_dir), 44100, 2)
+        output, _ = await run_in_threadpool(engine.mix, stems_for_mix, str(job_dir), 44100, 2)
     except AudioEngineError as e:
         raise HTTPException(500, str(e))
 
@@ -211,9 +220,9 @@ async def mix_job(job_id: str):
 
 
 @app.get("/api/search")
-def search_chords(artist: str = Query(""), title: str = Query("")):
+async def search_chords(artist: str = Query(""), title: str = Query("")):
     try:
-        candidates = cifra.search(artist, title)
+        candidates = await run_in_threadpool(cifra.search, artist, title)
         return {
             "candidates": [
                 {"url": c.url, "title": c.title, "version": c.version}
@@ -225,14 +234,14 @@ def search_chords(artist: str = Query(""), title: str = Query("")):
 
 
 @app.get("/api/chords/fetch")
-def fetch_chords(url: str = Query("")):
+async def fetch_chords(url: str = Query("")):
     try:
         from harmony import ChordCandidate
-        candidates = cifra.search("", "")
+        candidates = await run_in_threadpool(cifra.search, "", "")
         match = next((c for c in candidates if c.url == url), None)
         if not match:
             match = ChordCandidate(url, url, "desconocida")
-        chart = cifra.fetch(match)
+        chart = await run_in_threadpool(cifra.fetch, match)
         return {
             "key": chart.key_name or "",
             "scale": chart.scale or "",
