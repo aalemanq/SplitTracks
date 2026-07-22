@@ -122,7 +122,7 @@ async def create_job(
     for s in result.stems:
         stems_data.append({
             "name": s.name,
-            "file": s.path.name,
+            "file": str(s.path.relative_to(job_dir)),
             "color": s.color,
             "kind": s.kind,
         })
@@ -167,7 +167,7 @@ def get_job(job_id: str):
     return job
 
 
-@app.get("/api/jobs/{job_id}/stems/{stem_file}")
+@app.get("/api/jobs/{job_id}/stems/{stem_file:path}")
 def serve_stem(job_id: str, stem_file: str):
     stem_path = JOBS_DIR / f"Split Tracks - {job_id}" / stem_file
     if not stem_path.exists():

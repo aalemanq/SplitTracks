@@ -14,7 +14,7 @@ const API = {
   },
 
   stemUrl(jobId, file) {
-    return `/api/jobs/${jobId}/stems/${encodeURIComponent(file)}`;
+    return `/api/jobs/${jobId}/stems/${file}`;
   },
 
   async mixDownload(jobId) {
