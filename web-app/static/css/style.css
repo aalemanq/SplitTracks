@@ -110,15 +110,13 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .mixer{display:flex;flex-direction:column;gap:4px}
 .track-row{display:flex;align-items:center;gap:6px;padding:6px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface);min-height:46px}
 .track-row:hover{border-color:var(--line-strong);background:var(--surface-raised)}
-.track-color{width:7px;height:30px;border-radius:3px;flex-shrink:0}
-.track-name{font-size:13px;font-weight:800;width:80px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .track-btns{display:flex;gap:2px;flex-shrink:0}
 .track-btns button{width:28px;height:28px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface-raised);color:var(--muted);font-size:10px;font-weight:850;cursor:pointer;transition:all .15s;padding:0}
 .track-btns button.muted{border-color:var(--red);background:var(--red-soft);color:#efaaa3}
 .track-btns button.muted.active{border-color:var(--red);background:var(--red);color:#fff7ef}
 .track-btns button.soloed{border-color:var(--violet);background:#292b55;color:#a7a9e8}
 .track-btns button.soloed.active{border-color:var(--violet);background:var(--violet);color:#fff7ef}
-.track-volume{flex:1;min-width:50px}
+.track-volume{width:100px;flex-shrink:0}
 .track-volume input[type=range]{width:100%;height:4px;-webkit-appearance:none;appearance:none;background:var(--surface-raised);border-radius:2px;outline:none;cursor:pointer}
 .track-volume input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:var(--cyan);border:2px solid var(--canvas);cursor:pointer}
 .track-vol-val{font-size:11px;color:var(--muted);min-width:34px;text-align:right;flex-shrink:0;font-variant-numeric:tabular-nums}

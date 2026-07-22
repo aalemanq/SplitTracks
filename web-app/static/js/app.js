@@ -140,16 +140,18 @@ function buildChordPanels(job){
   }
 }
 
-// ── Mixer ── Fix 4: Batería completa → Batería
+// ── Mixer ── Fix 4: chip-style names + small volume
 function buildMixer(job){
   const mixer=$('mixer'); mixer.innerHTML='';
   job.stems.forEach((s,i)=>{
-    const row=document.createElement('div'); row.className='track-row';
-    const color=document.createElement('div'); color.className='track-color'; color.style.background=s.color; row.appendChild(color);
-    const nameEl=document.createElement('div'); nameEl.className='track-name';
-    // Fix 4: shorten long names
     const displayName = s.name==='Batería completa'?'Batería':s.name==='Piano y teclados'?'Piano':s.name;
-    nameEl.textContent=displayName; row.appendChild(nameEl);
+    const stemInfo = STEMS.find(st=>st.name===displayName) || {key:'other'};
+    const row=document.createElement('div'); row.className='track-row';
+
+    const chip=document.createElement('div');
+    chip.className=`chip active ${stemInfo.key}`; chip.textContent=displayName;
+    row.appendChild(chip);
+
     const btns=document.createElement('div'); btns.className='track-btns';
     const muteBtn=document.createElement('button'); muteBtn.textContent='M'; muteBtn.className='muted';
     muteBtn.onclick=()=>{ s.mute=!s.mute; muteBtn.classList.toggle('active',s.mute); player.setMute(i,s.mute); saveState(); };
@@ -157,11 +159,13 @@ function buildMixer(job){
     const soloBtn=document.createElement('button'); soloBtn.textContent='S'; soloBtn.className='soloed';
     soloBtn.onclick=()=>{ s.solo=!s.solo; soloBtn.classList.toggle('active',s.solo); player.setSolo(i,s.solo); saveState(); };
     btns.appendChild(soloBtn); row.appendChild(btns);
+
     const volWrap=document.createElement('div'); volWrap.className='track-volume';
     const volSlider=document.createElement('input'); volSlider.type='range'; volSlider.min='0'; volSlider.max='125'; volSlider.value='100';
     const volVal=document.createElement('span'); volVal.className='track-vol-val'; volVal.textContent='100%';
     volSlider.oninput=()=>{ const v=parseInt(volSlider.value)/100; player.setVolume(i,v); volVal.textContent=Math.round(v*100)+'%'; saveState(); };
     volWrap.appendChild(volSlider); row.appendChild(volWrap); row.appendChild(volVal);
+
     const expBtn=document.createElement('button'); expBtn.className='track-export'; expBtn.textContent='MP3';
     expBtn.onclick=()=>{ window.open(API.stemMp3Url(job.id,s.file),'_blank'); };
     row.appendChild(expBtn); mixer.appendChild(row);

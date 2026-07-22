@@ -106,7 +106,7 @@ def _process_job(job_id, audio_path, url, artist, title, selected, cancel, job_d
             artist, title = guess_artist_title(result.title, fallback_artist=result.artist)
             if not artist and result.artist: artist = result.artist
 
-        _update(job_id, "analyzing", 0.4, "Analizando...")
+        _update(job_id, "analyzing", 0.4, "Analizando...", artist=artist, title=title)
         try:
             info = engine.probe(audio_path)
             analysis = analyze_audio(audio_path, cancel_event=cancel)
