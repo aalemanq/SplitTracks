@@ -160,6 +160,8 @@ function buildMixer(job){
     soloBtn.onclick=()=>{ s.solo=!s.solo; soloBtn.classList.toggle('active',s.solo); player.setSolo(i,s.solo); saveState(); };
     btns.appendChild(soloBtn); row.appendChild(btns);
 
+    const spacer=document.createElement('div'); spacer.className='track-spacer'; row.appendChild(spacer);
+
     const volWrap=document.createElement('div'); volWrap.className='track-volume';
     const volSlider=document.createElement('input'); volSlider.type='range'; volSlider.min='0'; volSlider.max='125'; volSlider.value='100';
     const volVal=document.createElement('span'); volVal.className='track-vol-val'; volVal.textContent='100%';
