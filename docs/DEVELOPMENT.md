@@ -66,3 +66,49 @@ Los tests no deben depender de una consulta de red real. Para probar scraping, u
 - No uses `subprocess.run()` sin cancelación en una ruta que pueda ejecutarse mientras la ventana está abierta.
 - Cualquier nueva fuente de acordes debe devolver `ChordCandidate`/`ChordChart`, no contaminar `app.py` con HTML.
 - Si cambias el modelo, formato interno o pipeline de audio, actualiza README, `PROVENANCE.json` y tests afectados.
+
+## Desarrollo web (rama `feature/cross-platform`)
+
+### Arranque rápido
+
+```bash
+cd web-app && ../.venv/bin/python server.py
+# → http://localhost:8745
+```
+
+### Validación
+
+```bash
+python3 -m py_compile web-app/server.py web-app/launcher.py
+./.venv/bin/python -m unittest discover -s tests -v
+```
+
+### Tests manuales
+
+```bash
+# Health check
+curl -s http://127.0.0.1:8745/health
+
+# Probar con YouTube (canción corta)
+curl -s -X POST -F "url=https://www.youtube.com/watch?v=28d_A_NuJ7A" -F 'stems=["vocals"]' http://127.0.0.1:8745/api/jobs
+
+# Buscar acordes
+curl -s "http://127.0.0.1:8745/api/chords/search?artist=Adele&title=Someone%20Like%20You"
+```
+
+### Builds
+
+```bash
+# Genérico
+.venv/bin/python web-app/build/build.py
+
+# macOS (.app + DMG)
+./web-app/build/build-macos.sh
+
+# Windows (.exe + ZIP)
+web-app\build\build-windows.bat
+```
+
+### Estado del server
+
+Jobs en memoria: `_jobs` dict. Reiniciar = perder jobs. Archivos en `~/Split Tracks/`.
