@@ -106,7 +106,10 @@ def _process_job(job_id, audio_path, url, artist, title, selected, cancel, job_d
                 cancel_event=cancel,
             )
             audio_path = result.path
-            artist, title = guess_artist_title(result.title)
+            artist, title = guess_artist_title(result.title, fallback_artist=result.artist)
+            if not artist and result.artist:
+                artist = result.artist
+            _log.info("YouTube done: artist=%r title=%r", artist, title)
 
         _update(job_id, "analyzing", 0.4, "Analizando...")
         try:
@@ -137,7 +140,9 @@ def _process_job(job_id, audio_path, url, artist, title, selected, cancel, job_d
         chart_info = {}
         if artist and title:
             try:
+                _log.info("Searching chords for %s - %s", artist, title)
                 candidates = cifra.search(artist, title)
+                _log.info("Found %d candidates for %s - %s", len(candidates), artist, title)
                 if candidates:
                     chart = cifra.fetch(candidates[0])
                     chart_info = {
@@ -148,8 +153,9 @@ def _process_job(job_id, audio_path, url, artist, title, selected, cancel, job_d
                             for s in chart.sections
                         ],
                     }
-            except Exception:
-                pass
+                    _log.info("Chord fetch OK: %d sections, key=%s", len(chart_info["sections"]), chart_info["key"])
+            except Exception as e:
+                _log.warning("Chord fetch failed: %s", e)
 
         _update(job_id, "done", 1.0, "Listo", stems=stems_data)
         with _job_lock:
@@ -191,6 +197,19 @@ def cancel_job(job_id: str):
     if cancel:
         cancel.set()
     return {"ok": True}
+
+
+@app.get("/api/jobs/{job_id}/stems-mp3/{stem_file:path}")
+async def serve_stem_mp3(job_id: str, stem_file: str):
+    stem_path = JOBS_DIR / f"Split Tracks - {job_id}" / stem_file
+    if not stem_path.exists():
+        raise HTTPException(404)
+    mp3_path = stem_path.with_suffix(".mp3")
+    if not mp3_path.exists():
+        await run_in_threadpool(
+            engine._render_audio, (stem_path,), mp3_path, 44100, 2
+        )
+    return FileResponse(mp3_path, media_type="audio/mpeg", filename=stem_path.stem + ".mp3")
 
 
 @app.post("/api/jobs/{job_id}/mix")
@@ -237,10 +256,15 @@ async def search_chords(artist: str = Query(""), title: str = Query("")):
 async def fetch_chords(url: str = Query("")):
     try:
         from harmony import ChordCandidate
-        candidates = await run_in_threadpool(cifra.search, "", "")
-        match = next((c for c in candidates if c.url == url), None)
-        if not match:
-            match = ChordCandidate(url, url, "desconocida")
+        from urllib.parse import urlparse, unquote
+
+        path = urlparse(url).path.strip("/")
+        parts = [p for p in path.split("/") if p and not p.endswith((".html", ".htm"))]
+        if len(parts) >= 2:
+            artist = unquote(parts[-2]).replace("-", " ").title()
+            title = unquote(parts[-1]).replace("-", " ").title()
+
+        match = ChordCandidate(url, url, "desconocida")
         chart = await run_in_threadpool(cifra.fetch, match)
         return {
             "key": chart.key_name or "",

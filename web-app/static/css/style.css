@@ -260,7 +260,16 @@ body {
   align-items: baseline;
 }
 .studio-title { font-size: 20px; font-weight: 850; }
-.studio-meta { font-size: 13px; color: var(--muted); }
+.studio-meta { font-size: 13px; color: var(--muted); display: flex; gap: 8px; flex-wrap: wrap; }
+
+.metric-pill {
+  padding: 4px 10px;
+  border-radius: 15px;
+  font-size: 12px;
+  font-weight: 800;
+}
+.metric-pill.bpm { background: var(--blue-soft); color: var(--blue); }
+.metric-pill.key { background: var(--yellow-soft); color: var(--yellow); }
 
 .studio-body {
   display: grid;

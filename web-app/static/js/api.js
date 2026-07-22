@@ -13,6 +13,10 @@ const API = {
     return fetch(`/api/jobs/${id}/cancel`, { method: 'POST' });
   },
 
+  stemMp3Url(jobId, file) {
+    return `/api/jobs/${jobId}/stems-mp3/${file}`;
+  },
+
   stemUrl(jobId, file) {
     return `/api/jobs/${jobId}/stems/${file}`;
   },

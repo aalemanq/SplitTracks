@@ -153,9 +153,9 @@ async function buildStudio(job) {
 
   // Meta info
   let meta = [];
-  if (job.bpm) meta.push(job.bpm + ' BPM');
-  if (job.key) meta.push('Tono: ' + job.key);
-  $('studioMeta').textContent = meta.join(' · ');
+  if (job.bpm) meta.push(`<span class="metric-pill bpm">${Math.round(job.bpm)} BPM</span>`);
+  if (job.key) meta.push(`<span class="metric-pill key">Tono: ${job.key}</span>`);
+  $('studioMeta').innerHTML = meta.join(' ');
 
   // Waveform placeholder
   drawWaveformPlaceholder();
@@ -225,6 +225,10 @@ async function buildStudio(job) {
     const expBtn = document.createElement('button');
     expBtn.className = 'track-export';
     expBtn.textContent = 'MP3';
+    expBtn.title = 'Descargar ' + s.name + ' MP3';
+    expBtn.onclick = () => {
+      window.open(API.stemMp3Url(job.id, s.file), '_blank');
+    };
     row.appendChild(expBtn);
 
     mixer.appendChild(row);
