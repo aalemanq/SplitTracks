@@ -126,6 +126,7 @@ def _process_job(job_id, audio_path, url, artist, title, selected, cancel, job_d
                 if candidates:
                     chart = cifra.fetch(candidates[0])
                     chart_info = _chart_to_dict(chart)
+                    analysis_dict["chord_count"] = chart.chord_count
             except Exception as e:
                 _log.warning("Chord fetch failed: %s", e)
 

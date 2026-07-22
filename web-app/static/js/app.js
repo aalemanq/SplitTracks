@@ -95,11 +95,13 @@ async function buildStudio(job){
 
 // ── Analysis metrics ──
 function buildAnalysis(job){
+  const chordCount = job.chord_count || (job.chart?.sections?.reduce((n,s)=>n+s.lines.reduce((m,l)=>m+l.chords.length,0),0) || 0);
   const keys=[['key_name','TONALIDAD'],['bpm','BPM'],['duration_label','DURACIÓN'],['scale','ESCALA'],['lufs','LUFS'],['dynamic_range_db','DINÁMICA'],['format_name','FORMATO'],['sample_rate_label','MUESTREO'],['channels','CANALES'],['tempo_confidence','TEMPO ESTABLE'],['key_confidence','CONFIANZA TONAL'],['chord_count','ACORDES']];
   const grid=$('metricsGrid'); grid.innerHTML='';
   keys.forEach(([k,title])=>{
+    let val = k==='chord_count'?chordCount:(job[k]!==undefined&&job[k]!==null&&job[k]!==''?job[k]:'—');
     const cell=document.createElement('div'); cell.className='metric-cell';
-    cell.innerHTML=`<span class="metric-label">${title}</span><span class="metric-value">${job[k]!==undefined&&job[k]!==null&&job[k]!==''?job[k]:'—'}</span>`;
+    cell.innerHTML=`<span class="metric-label">${title}</span><span class="metric-value">${val}</span>`;
     grid.appendChild(cell);
   });
   $('analysisPanel').hidden=false;
