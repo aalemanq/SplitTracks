@@ -88,6 +88,7 @@ async function buildStudio(job){
   $('studioMeta').innerHTML=meta.join(' ');
   buildAnalysis(job);
   $('pitchPanel').hidden=false; updatePitchDisplay();
+  $('tempoPanel').hidden=false; updateTempoDisplay();
   buildChordPanels(job);
   buildMixer(job);
   if(job.artist){$('harmonyArtist').value=job.artist;} if(job.title){$('harmonyTitle').value=job.title;}
@@ -241,6 +242,23 @@ function updatePitchDisplay(){
   if(s===0){$('pitchValue').textContent='Original · 0 semitonos';}
   else{const sign=s>0?'+':'−';$('pitchValue').textContent=`${sign}${Math.abs(s)} ${Math.abs(s)===1?'semitono':'semitonos'}`;}
   $('pitchDown').disabled=!jobData||s<=-12; $('pitchUp').disabled=!jobData||s>=12; $('pitchReset').disabled=!jobData||s===0||!jobData.chart;
+}
+
+// ── Tempo ──
+$('tempoDown').onclick=()=>changeTempo(-0.05); $('tempoUp').onclick=()=>changeTempo(0.05); $('tempoReset').onclick=()=>changeTempo(1.0,true);
+function changeTempo(delta,reset=false){
+  if(!jobData) return;
+  const current=reset?1.0:(jobData.tempo||1.0)+delta;
+  const tempo=Math.round(Math.max(0.5,Math.min(2.0,current))*100)/100;
+  jobData.tempo=tempo; updateTempoDisplay();
+  player.setTempo(tempo);
+}
+function updateTempoDisplay(){
+  const t=jobData?.tempo||1.0;
+  const pct=Math.round((t-1.0)*100);
+  if(t===1.0){$('tempoValue').textContent='×1.00 · original';}
+  else{const sign=pct>=0?'+':'';$('tempoValue').textContent=`×${t.toFixed(2)} · ${sign}${pct}%`;}
+  $('tempoDown').disabled=!jobData||t<=0.5; $('tempoUp').disabled=!jobData||t>=2.0; $('tempoReset').disabled=!jobData||t===1.0;
 }
 
 // ── Transport ──

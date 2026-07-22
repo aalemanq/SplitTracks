@@ -2,11 +2,11 @@ class Player {
   constructor() {
     this.ctx = null; this.stems = []; this.buffers = {}; this.sources = []; this.gains = [];
     this.masterGain = null; this.playing = false; this.startTime = 0; this.pausedAt = 0;
-    this.duration = 0; this.pitchSemitones = 0;
+    this.duration = 0; this.pitchSemitones = 0; this.tempoMultiplier = 1.0;
   }
 
   async load(stemsData) {
-    this.stop(); this.stems = stemsData; this.pitchSemitones = 0;
+    this.stop(); this.stems = stemsData; this.pitchSemitones = 0; this.tempoMultiplier = 1.0;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     this.masterGain = this.ctx.createGain(); this.masterGain.connect(this.ctx.destination); this.masterGain.gain.value = 1.0;
     this.buffers = {}; this.gains = []; this.duration = 0;
@@ -36,7 +36,7 @@ class Player {
   _createSources(offset = 0) {
     this._stopSources(); this.sources = [];
     const when = this.ctx.currentTime + 0.01;
-    const rate = Math.pow(2, this.pitchSemitones / 12);
+    const rate = Math.pow(2, this.pitchSemitones / 12) * this.tempoMultiplier;
     for (const g of this.gains) {
       const buf = this.buffers[g.name]; if (!buf) continue;
       const src = this.ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
@@ -66,6 +66,13 @@ class Player {
     semitones = Math.max(-12, Math.min(12, semitones));
     if (semitones === this.pitchSemitones) return;
     this.pitchSemitones = semitones;
+    if (this.playing) { this.pausedAt = this.position(); this._stopSources(); this._createSources(this.pausedAt); this.startTime = this.ctx.currentTime - this.pausedAt; }
+  }
+
+  setTempo(multiplier) {
+    multiplier = Math.max(0.5, Math.min(2.0, multiplier));
+    if (multiplier === this.tempoMultiplier) return;
+    this.tempoMultiplier = multiplier;
     if (this.playing) { this.pausedAt = this.position(); this._stopSources(); this._createSources(this.pausedAt); this.startTime = this.ctx.currentTime - this.pausedAt; }
   }
 }
