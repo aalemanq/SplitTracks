@@ -1,19 +1,21 @@
 class Player {
   constructor() {
-    this.ctx = null; this.stems = []; this.buffers = {}; this.sources = []; this.gains = [];
+    this.ctx = null; this.stems = []; this.originals = {}; this.buffers = {}; this.sources = []; this.gains = [];
     this.masterGain = null; this.playing = false; this.startTime = 0; this.pausedAt = 0;
     this.duration = 0; this.pitchSemitones = 0; this.tempoMultiplier = 1.0;
+    this._rendering = false;
   }
 
   async load(stemsData) {
     this.stop(); this.stems = stemsData; this.pitchSemitones = 0; this.tempoMultiplier = 1.0;
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     this.masterGain = this.ctx.createGain(); this.masterGain.connect(this.ctx.destination); this.masterGain.gain.value = 1.0;
-    this.buffers = {}; this.gains = []; this.duration = 0;
+    this.originals = {}; this.buffers = {}; this.gains = []; this.duration = 0;
     for (const s of stemsData) {
       try {
         const res = await fetch(s.path); const arrayBuf = await res.arrayBuffer();
         const audioBuf = await this.ctx.decodeAudioData(arrayBuf);
+        this.originals[s.name] = audioBuf;
         this.buffers[s.name] = audioBuf;
         if (audioBuf.duration > this.duration) this.duration = audioBuf.duration;
         const gain = this.ctx.createGain(); gain.connect(this.masterGain);
@@ -36,7 +38,7 @@ class Player {
   _createSources(offset = 0) {
     this._stopSources(); this.sources = [];
     const when = this.ctx.currentTime + 0.01;
-    const rate = Math.pow(2, this.pitchSemitones / 12) * this.tempoMultiplier;
+    const rate = this.tempoMultiplier;
     for (const g of this.gains) {
       const buf = this.buffers[g.name]; if (!buf) continue;
       const src = this.ctx.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
@@ -62,11 +64,28 @@ class Player {
   setSolo(index, solo) { if (index < this.stems.length) { this.stems[index].solo = solo; this._updateGains(); } }
   setMasterVolume(vol) { if (this.masterGain) this.masterGain.gain.value = Math.max(0, Math.min(1.5, vol)); }
 
-  setPitch(semitones) {
+  async setPitch(semitones) {
     semitones = Math.max(-12, Math.min(12, semitones));
-    if (semitones === this.pitchSemitones) return;
+    if (semitones === this.pitchSemitones || this._rendering) return;
+    this._rendering = true;
+    const wasPlaying = this.playing;
+    if (wasPlaying) { this.pausedAt = this.position(); this._stopSources(); this.playing = false; }
     this.pitchSemitones = semitones;
-    if (this.playing) { this.pausedAt = this.position(); this._stopSources(); this._createSources(this.pausedAt); this.startTime = this.ctx.currentTime - this.pausedAt; }
+
+    const rate = Math.pow(2, semitones / 12);
+    const names = Object.keys(this.originals);
+    for (const name of names) {
+      const buf = this.originals[name];
+      if (semitones === 0) { this.buffers[name] = buf; continue; }
+      const newLen = Math.max(1, Math.floor(buf.length / rate));
+      const offline = new OfflineAudioContext(buf.numberOfChannels, newLen, buf.sampleRate);
+      const src = offline.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
+      src.connect(offline.destination); src.start(0);
+      this.buffers[name] = await offline.startRendering();
+    }
+
+    this._rendering = false;
+    if (wasPlaying) { this._createSources(this.pausedAt); this.startTime = this.ctx.currentTime - this.pausedAt; this.playing = true; }
   }
 
   setTempo(multiplier) {

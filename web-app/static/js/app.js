@@ -223,12 +223,14 @@ async function selectVersion(candidate,row){
 // ── Pitch ── Fix 1: also update audio pitch
 $('pitchDown').onclick=()=>changePitch(-1); $('pitchUp').onclick=()=>changePitch(1); $('pitchReset').onclick=()=>changePitch(0,true);
 async function changePitch(delta,reset=false){
-  if(!jobData) return;
+  if(!jobData||player._rendering) return;
   const current=reset?0:(jobData.pitch||0)+delta;
   const semitones=Math.max(-12,Math.min(12,current));
   jobData.pitch=semitones; updatePitchDisplay();
-  // Fix 1: set audio pitch
-  player.setPitch(semitones);
+  $('pitchDown').disabled=true; $('pitchUp').disabled=true; $('pitchReset').disabled=true;
+  $('pitchValue').textContent+=' · procesando…';
+  await player.setPitch(semitones);
+  updatePitchDisplay();
   if(jobData.chart?.url){
     try{
       const res=await API.transposeChords(jobData.chart.url,semitones);
