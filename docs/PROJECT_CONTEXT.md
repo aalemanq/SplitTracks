@@ -2,7 +2,12 @@
 
 ## Producto y alcance
 
-Split Tracks es una aplicación de escritorio GTK4 para Ubuntu/Linux. Su objetivo es cargar una mezcla estéreo local o descargar audio desde YouTube, separar seis categorías con Demucs y escuchar/exportar el resultado. Es de uso personal: no hay cuentas, premium, paywall, ventas, biblioteca gestionada ni sincronización web.
+Split Tracks es una aplicación de escritorio para separación de audio en stems. Tiene dos versiones:
+
+- **GTK4 para Ubuntu/Linux** (rama `main`): aplicación nativa con interfaz GTK4, mixer GStreamer y transposición en vivo.
+- **Web multiplataforma** (rama `feature/cross-platform`): servidor FastAPI + frontend HTML/CSS/JS, mixer Web Audio API, compatible con macOS/Windows/Linux.
+
+Es de uso personal: no hay cuentas, premium, paywall, ventas, biblioteca gestionada ni sincronización web.
 
 El nombre visible actual es **Split Tracks**. El repositorio remoto es `git@github.com:aalemanq/stemforge.git`; el producto conservó nombres técnicos históricos como `StemForge` en algunos artefactos y reportes, pero no los cambies sin revisar compatibilidad.
 
@@ -83,5 +88,41 @@ Tema dark/solarized con paneles GTK. Los iconos de instrumento están en `assets
 - `e37ccfe`: carga automática de la primera versión de Cifra Club.
 - `d8028f9`: celdas de acordes con ancho estable.
 - `48d17d4`: alineado estable de tonalidades con sostenidos/bemoles.
+- Migración web: versión multiplataforma con FastAPI + Web Audio API en rama `feature/cross-platform`.
 
 La rama de trabajo histórica es `feature/human-chord-sources`. Tras este trabajo se fusiona localmente en `master` según la petición del usuario; no hagas push automáticamente.
+
+## Versión web multiplataforma (`feature/cross-platform`)
+
+La versión web comparte el motor (`engine.py`, `harmony.py`, `analysis.py`) con la versión GTK pero reemplaza la UI con un frontend HTML/CSS/JS y el sistema de audio GStreamer por Web Audio API.
+
+### Arquitectura
+
+- **`web-app/server.py`**: servidor FastAPI que expone los endpoints REST. Las operaciones bloqueantes (descarga, análisis, separación) se ejecutan en threads daemon para no bloquear el event loop. Los trabajos son asíncronos: el POST `/api/jobs` devuelve el ID al instante y el cliente sondea el progreso.
+- **`web-app/static/index.html`**: layout de dos paneles: sidebar (acordes, métricas, pitch) + workspace (progreso, acordes, mixer).
+- **`web-app/static/js/player.js`**: mixer multitrack con Web Audio API. Cada stem se carga como AudioBuffer y se reproduce sincronizado mediante BufferSource nodes con ganancia individual.
+- **`web-app/static/js/app.js`**: lógica de UI completa: chips de stems, búsqueda de acordes, selección de versiones, transposición, métricas, mixer, exportación.
+
+### Endpoints principales
+
+| Ruta | Función |
+|------|---------|
+| POST /api/jobs | Crear trabajo (YouTube o archivo) — asíncrono |
+| GET /api/jobs/{id} | Estado, stems, métricas, acordes |
+| GET /api/jobs/{id}/stems/{file} | Servir stem WAV |
+| GET /api/jobs/{id}/stems-mp3/{file} | Transcodificar y servir stem MP3 |
+| POST /api/jobs/{id}/pitch | Cambiar pitch (semitones) |
+| GET /api/chords/search | Buscar en Cifra Club |
+| POST /api/chords/transpose | Transponer acordes |
+| POST /api/jobs/{id}/export/mix | Exportar mezcla MP3 |
+
+### Builds
+
+- **macOS**: `build/build-macos.sh` → PyInstaller .app + DMG
+- **Windows**: `build/build-windows.bat` → PyInstaller .exe + ZIP
+
+### Límites conocidos
+
+- El pitch del audio no se transpone (Web Audio API no tiene pitch shift nativo); solo se transpone la visualización de acordes.
+- Los trabajos se pierden al reiniciar el servidor (estado en memoria).
+- La versión web no tiene waveform real (placeholder visual).
