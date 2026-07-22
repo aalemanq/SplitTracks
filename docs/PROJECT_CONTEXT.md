@@ -9,7 +9,7 @@ Split Tracks es una aplicación de escritorio para separación de audio en stems
 
 Es de uso personal: no hay cuentas, premium, paywall, ventas, biblioteca gestionada ni sincronización web.
 
-El nombre visible actual es **Split Tracks**. El repositorio remoto es `git@github.com:aalemanq/stemforge.git`; el producto conservó nombres técnicos históricos como `StemForge` en algunos artefactos y reportes, pero no los cambies sin revisar compatibilidad.
+El nombre visible actual es **Split Tracks**. El repositorio remoto es `git@github.com:aalemanq/SplitTracks.git`.
 
 ## Flujo funcional actual
 
