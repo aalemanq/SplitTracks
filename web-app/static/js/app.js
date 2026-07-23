@@ -226,8 +226,6 @@ async function selectVersion(candidate,row){
     }
   }catch(e){$('harmonyStatus').textContent='Error: '+e.message;}
 }
-  }catch(e){$('harmonyStatus').textContent='Error: '+e.message;}
-}
 
 // ── Pitch ── Fix 1: also update audio pitch
 $('pitchDown').onclick=()=>changePitch(-1); $('pitchUp').onclick=()=>changePitch(1); $('pitchReset').onclick=()=>changePitch(0,true);
