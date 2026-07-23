@@ -28,7 +28,7 @@ $('fileInput').onchange=()=>{ const f=$('fileInput').files[0]; if(f) startJob({f
 async function startJob({url,file}={}){
   const form = new FormData(); if(file) form.append('file',file); if(url) form.append('url',url);
   form.append('stems',JSON.stringify([...selectedStems]));
-  $('progressPanel').hidden=false; $('studioPanel').hidden=true; $('footer').hidden=true;
+  $('progressPanel').hidden=false; $('studioPanel').hidden=true;
   $('progressTitle').textContent='Enviando...'; $('progressPct').textContent='0%'; $('progressPhase').textContent='';
   $('cancelBtn').hidden=false; $('processBtn').disabled=true;
   _elapsedStart=Date.now(); _startElapsed();
@@ -81,7 +81,7 @@ function _stopElapsed(){ clearInterval(_elapsedTimer); $('progressElapsed').hidd
 
 // ── Build studio ──
 async function buildStudio(job){
-  $('studioPanel').hidden=false; $('footer').hidden=false; $('exportMixBtn').disabled=false; $('exportStemsBtn').disabled=false;
+  $('studioPanel').hidden=false; $('exportMixBtn').disabled=false; $('exportStemsBtn').disabled=false;
   let meta=[];
   if(job.bpm) meta.push(`<span class="metric-pill bpm">${Math.round(job.bpm)} BPM</span>`);
   if(job.key_name||job.chart?.key) meta.push(`<span class="metric-pill key">Tono: ${job.chart?.key||job.key_name||'?'}</span>`);

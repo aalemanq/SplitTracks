@@ -82,10 +82,6 @@
     </div>
 
     <div id="studioPanel" hidden>
-      <div class="studio-header">
-        <div class="studio-title">Resultado</div>
-        <div class="studio-meta" id="studioMeta"></div>
-      </div>
       <div class="transport-bar" id="transportBar">
         <div class="transport">
           <button id="stopBtn" class="btn btn-icon" title="Stop">⏹</button>
@@ -100,6 +96,14 @@
           <input type="range" id="timeline" min="0" max="100" value="0" class="timeline">
           <span class="time-label" id="totalTime">0:00</span>
         </div>
+        <div class="transport-exports">
+          <button id="exportMixBtn" class="btn btn-green" disabled>Exportar mezcla MP3</button>
+          <button id="exportStemsBtn" class="btn btn-outline" disabled>Exportar pistas MP3</button>
+        </div>
+      </div>
+      <div class="studio-header">
+        <div class="studio-title">Resultado</div>
+        <div class="studio-meta" id="studioMeta"></div>
       </div>
       <div class="mixer-section">
         <div class="mixer-header">
@@ -112,13 +116,6 @@
     </div>
   </section>
 </main>
-
-<footer id="footer" hidden>
-  <div class="footer-right">
-    <button id="exportMixBtn" class="btn btn-green" disabled>Exportar mezcla MP3</button>
-    <button id="exportStemsBtn" class="btn btn-outline" disabled>Exportar pistas MP3</button>
-  </div>
-</footer>
 
 <script src="/static/js/api.js"></script>
 <script src="/static/js/player.js"></script>
