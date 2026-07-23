@@ -8,16 +8,21 @@ import json
 import os
 import platform
 import re
-import select
 import shutil
 import signal
 import subprocess
 import sys
 import tempfile
+import threading
 from urllib.parse import urlparse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
+
+try:
+    import queue
+except ImportError:
+    import Queue as queue  # type: ignore  # Python 2 fallback
 
 IS_WINDOWS = platform.system() == "Windows"
 
@@ -74,6 +79,42 @@ class YoutubeDownloadResult:
 
 
 ProgressCallback = Callable[[float, str], None]
+
+
+def _read_process_lines(stream, process, cancel_event):
+    """Yield lines from a subprocess stdout pipe. Works on Windows where select()
+    does not support pipe file descriptors."""
+    line_queue: queue.Queue = queue.Queue()
+    finished = threading.Event()
+
+    def _reader():
+        try:
+            for raw in iter(stream.readline, ""):
+                if finished.is_set():
+                    break
+                line_queue.put(raw)
+        except (ValueError, OSError):
+            pass
+        finally:
+            line_queue.put(None)
+
+    reader = threading.Thread(target=_reader, daemon=True)
+    reader.start()
+    try:
+        while True:
+            try:
+                raw = line_queue.get(timeout=0.2)
+            except queue.Empty:
+                if cancel_event is not None and cancel_event.is_set():
+                    return
+                if process.poll() is not None and line_queue.empty():
+                    return
+                continue
+            if raw is None:
+                return
+            yield raw
+    finally:
+        finished.set()
 
 
 def _signal_process_tree(process: subprocess.Popen, *, force: bool = False) -> None:
@@ -274,8 +315,7 @@ class SeparationEngine:
         output_lines: list[str] = []
         try:
             assert process.stdout is not None
-            stream = process.stdout
-            while True:
+            for raw_line in _read_process_lines(process.stdout, process, cancel_event):
                 if cancel_event is not None and cancel_event.is_set():
                     _signal_process_tree(process)
                     try:
@@ -284,16 +324,6 @@ class SeparationEngine:
                         _signal_process_tree(process, force=True)
                         process.wait()
                     raise SeparationCancelled("Descarga cancelada. No se ha conservado el archivo temporal.")
-                ready, _, _ = select.select([stream], [], [], 0.2)
-                if not ready:
-                    if process.poll() is not None:
-                        break
-                    continue
-                raw_line = stream.readline()
-                if not raw_line:
-                    if process.poll() is not None:
-                        break
-                    continue
                 line = raw_line.strip()
                 if line:
                     output_lines.append(line)
@@ -434,8 +464,7 @@ class SeparationEngine:
         output_lines: list[str] = []
         try:
             assert process.stdout is not None
-            stream = process.stdout
-            while True:
+            for raw_line in _read_process_lines(process.stdout, process, cancel_event):
                 if cancel_event is not None and cancel_event.is_set():
                     _signal_process_tree(process)
                     try:
@@ -444,16 +473,6 @@ class SeparationEngine:
                         _signal_process_tree(process, force=True)
                         process.wait()
                     raise SeparationCancelled("Separación cancelada. No se han conservado archivos parciales.")
-                ready, _, _ = select.select([stream], [], [], 0.2)
-                if not ready:
-                    if process.poll() is not None:
-                        break
-                    continue
-                raw_line = stream.readline()
-                if not raw_line:
-                    if process.poll() is not None:
-                        break
-                    continue
                 line = raw_line.strip()
                 if line:
                     output_lines.append(line)

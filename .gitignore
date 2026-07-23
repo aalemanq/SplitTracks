@@ -5,3 +5,11 @@ __pycache__/
 sessions/
 
 .venv/
+
+# Windows tool binaries (downloaded by setup script)
+bin/*.exe
+# macOS universal binary
+bin/yt-dlp_macos
+# ffmpeg binaries
+bin/ffmpeg
+bin/ffprobe
