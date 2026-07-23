@@ -25,6 +25,7 @@ except ImportError:
     import Queue as queue  # type: ignore  # Python 2 fallback
 
 IS_WINDOWS = platform.system() == "Windows"
+_NO_WINDOW = 0x08000000 if IS_WINDOWS else 0  # CREATE_NO_WINDOW
 
 
 class AudioEngineError(RuntimeError):
@@ -164,6 +165,7 @@ def _run(command: list[str], *, capture_output: bool = True, cancel_event=None) 
                 capture_output=capture_output,
                 encoding="utf-8",
                 errors="replace",
+                creationflags=_NO_WINDOW,
             )
         except FileNotFoundError as exc:
             raise AudioEngineError(
@@ -181,6 +183,7 @@ def _run(command: list[str], *, capture_output: bool = True, cancel_event=None) 
             encoding="utf-8",
             errors="replace",
             start_new_session=True,
+            creationflags=_NO_WINDOW,
         )
     except FileNotFoundError as exc:
         raise AudioEngineError(
@@ -312,6 +315,7 @@ class SeparationEngine:
             errors="replace",
             bufsize=1,
             start_new_session=True,
+            creationflags=_NO_WINDOW,
         )
         output_lines: list[str] = []
         try:
@@ -462,6 +466,7 @@ class SeparationEngine:
             bufsize=1,
             env={**os.environ, "PYTHONUNBUFFERED": "1"},
             start_new_session=True,
+            creationflags=_NO_WINDOW,
         )
         output_lines: list[str] = []
         try:
@@ -562,6 +567,7 @@ class SeparationEngine:
                     check=False,
                     capture_output=True,
                     text=True,
+                    creationflags=_NO_WINDOW,
                 )
             except OSError:
                 check = None
@@ -574,6 +580,7 @@ class SeparationEngine:
                 check=False,
                 capture_output=True,
                 text=True,
+                creationflags=_NO_WINDOW,
             )
         except OSError:
             return None

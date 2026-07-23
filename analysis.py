@@ -20,6 +20,7 @@ from pathlib import Path
 import numpy as np
 
 IS_WINDOWS = platform.system() == "Windows"
+_NO_WINDOW = 0x08000000 if IS_WINDOWS else 0
 
 
 class AnalysisError(RuntimeError):
@@ -237,7 +238,7 @@ class AudioAnalysis:
 def _run_analysis_process(command: list[str], *, text: bool, cancel_event=None):
     if cancel_event is None:
         try:
-            return subprocess.run(command, check=False, capture_output=True, text=text)
+            return subprocess.run(command, check=False, capture_output=True, text=text, creationflags=_NO_WINDOW)
         except FileNotFoundError as exc:
             raise AnalysisError("No encuentro FFmpeg para analizar el audio.") from exc
 
@@ -250,6 +251,7 @@ def _run_analysis_process(command: list[str], *, text: bool, cancel_event=None):
             stderr=subprocess.PIPE,
             text=text,
             start_new_session=True,
+            creationflags=_NO_WINDOW,
         )
     except FileNotFoundError as exc:
         raise AnalysisError("No encuentro FFmpeg para analizar el audio.") from exc
