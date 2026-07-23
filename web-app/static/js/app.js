@@ -2,7 +2,7 @@ import { Player } from './player.js';
 import { API } from './api.js';
 
 const player = new Player();
-let jobId = null, jobData = null, duration = 0, updateTimer = null, _elapsedStart = 0, _elapsedTimer = null;
+let jobId = null, jobData = null, chordData = null, duration = 0, updateTimer = null, _elapsedStart = 0, _elapsedTimer = null;
 
 const STEMS = [
   {key:'vocals',name:'Voces',color:'#d33682'},{key:'drums',name:'Batería',color:'#cb4b16'},
@@ -87,15 +87,16 @@ async function buildStudio(job){
   $('studioPanel').hidden=false; $('exportMixBtn').disabled=false; $('exportStemsBtn').disabled=false;
   let meta=[];
   if(job.bpm) meta.push(`<span class="metric-pill bpm">${Math.round(job.bpm)} BPM</span>`);
-  if(job.key_name||job.chart?.key) meta.push(`<span class="metric-pill key">Tono: ${job.chart?.key||job.key_name||'?'}</span>`);
+  if(job.key_name||chordData?.chart?.key||job.chart?.key) meta.push(`<span class="metric-pill key">Tono: ${chordData?.chart?.key||job.chart?.key||job.key_name||'?'}</span>`);
   $('studioMeta').innerHTML=meta.join(' ');
+  if(chordData) { job.chart = chordData.chart; job._transposed = chordData._transposed; job._degrees = chordData._degrees; job._chartUrl = chordData.url; }
   buildAnalysis(job);
   $('pitchPanel').hidden=false; updatePitchDisplay();
   $('tempoPanel').hidden=false; updateTempoDisplay();
   buildChordPanels(job);
   buildMixer(job);
   if(job.artist){$('harmonyArtist').value=job.artist;} if(job.title){$('harmonyTitle').value=job.title;}
-  if(job.artist&&job.title){ searchHarmony(); }
+  if(job.artist&&job.title&&!job.chart){ searchHarmony(); }
   for(const s of job.stems){ s.path=API.stemUrl(job.id,s.file); s.volume=1;s.mute=false;s.solo=false; }
   duration=await player.load(job.stems);
   $('timeline').max=duration;$('totalTime').textContent=fmtTime(duration);$('currentTime').textContent='0:00';
@@ -120,7 +121,8 @@ function buildAnalysis(job){
 function buildChordPanels(job){
   const ctr=$('chordPanels'); ctr.innerHTML='';
   const sections = job._transposed || job.chart?.sections || [];
-  if(!sections.length){ctr.innerHTML='<div class="chord-panel"><div class="chord-panel-title">Sin acordes</div></div>';return;}
+  if(!sections.length){ctr.innerHTML='<div class="chord-panel"><div class="chord-panel-title">Sin acordes</div></div>';ctr.hidden=false;return;}
+  ctr.hidden=false;
   // Chords panel
   const chordsPanel=document.createElement('div'); chordsPanel.className='chord-panel';
   chordsPanel.innerHTML='<div class="chord-panel-title">Acordes de la fuente</div>';
@@ -213,20 +215,24 @@ async function selectVersion(candidate,row){
   try{
     const res=await API.fetchChords(candidate.url);
     if(res.chart){
-      jobData.chart=res.chart;
+      if(jobData){ jobData.chart=res.chart; }
+      chordData = chordData || {};
+      chordData.chart = res.chart;
+      chordData.url = candidate.url;
       $('harmonyStatus').textContent=`${res.chart.source} · ${res.chart.version} · ${res.chart.display_key||'tonalidad no indicada'}${res.chart.capo?' · capo '+res.chart.capo:''}`;
-      // Fix 3: also fetch degrees at pitch 0
-      try{ const tp=await API.transposeChords(candidate.url,0); jobData._transposed=tp.sections; jobData._degrees=tp.degrees; }catch(e){}
-      buildChordPanels(jobData); buildAnalysis(jobData);
+      try{ const tp=await API.transposeChords(candidate.url,0); chordData._transposed=tp.sections; chordData._degrees=tp.degrees; }catch(e){}
+      buildChordPanels(chordData);
       $('pitchUp').disabled=false; $('pitchDown').disabled=false; $('pitchReset').disabled=false;
     }
+  }catch(e){$('harmonyStatus').textContent='Error: '+e.message;}
+}
   }catch(e){$('harmonyStatus').textContent='Error: '+e.message;}
 }
 
 // ── Pitch ── Fix 1: also update audio pitch
 $('pitchDown').onclick=()=>changePitch(-1); $('pitchUp').onclick=()=>changePitch(1); $('pitchReset').onclick=()=>changePitch(0,true);
 async function changePitch(delta,reset=false){
-  if(!jobData||player._rendering) return;
+  if(!jobData) return;
   const current=reset?0:(jobData.pitch||0)+delta;
   const semitones=Math.max(-12,Math.min(12,current));
   jobData.pitch=semitones; updatePitchDisplay();
@@ -234,11 +240,12 @@ async function changePitch(delta,reset=false){
   $('pitchValue').textContent+=' · procesando…';
   await player.setPitch(semitones);
   updatePitchDisplay();
-  if(jobData.chart?.url){
+  const chartUrl = jobData?._chartUrl || chordData?.url;
+  if(chartUrl){
     try{
-      const res=await API.transposeChords(jobData.chart.url,semitones);
-      if(res.sections){jobData._transposed=res.sections; jobData._degrees=res.degrees; buildChordPanels(jobData);}
-      if(res.key){ let meta=[]; if(jobData.bpm) meta.push(`<span class="metric-pill bpm">${Math.round(jobData.bpm)} BPM</span>`); meta.push(`<span class="metric-pill key">Tono: ${res.key}</span>`); $('studioMeta').innerHTML=meta.join(' '); }
+      const res=await API.transposeChords(chartUrl,semitones);
+      if(res.sections){ chordData._transposed=res.sections; chordData._degrees=res.degrees; if(jobData){ jobData._transposed=res.sections; jobData._degrees=res.degrees; } buildChordPanels(chordData); }
+      if(res.key){ let meta=[]; if(jobData?.bpm) meta.push(`<span class="metric-pill bpm">${Math.round(jobData.bpm)} BPM</span>`); meta.push(`<span class="metric-pill key">Tono: ${res.key}</span>`); $('studioMeta').innerHTML=meta.join(' '); }
     }catch(e){}
   }
 }
@@ -246,7 +253,7 @@ function updatePitchDisplay(){
   const s=jobData?.pitch||0;
   if(s===0){$('pitchValue').textContent='Original · 0 semitonos';}
   else{const sign=s>0?'+':'−';$('pitchValue').textContent=`${sign}${Math.abs(s)} ${Math.abs(s)===1?'semitono':'semitonos'}`;}
-  $('pitchDown').disabled=!jobData||s<=-12; $('pitchUp').disabled=!jobData||s>=12; $('pitchReset').disabled=!jobData||s===0||!jobData.chart;
+  $('pitchDown').disabled=!jobData||s<=-12; $('pitchUp').disabled=!jobData||s>=12; $('pitchReset').disabled=!jobData||s===0||!(jobData.chart||chordData?.chart);
 }
 
 // ── Tempo ──
