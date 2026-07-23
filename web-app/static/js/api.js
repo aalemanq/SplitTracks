@@ -37,3 +37,5 @@ const API = {
     return res.json();
   },
 };
+
+export { API };

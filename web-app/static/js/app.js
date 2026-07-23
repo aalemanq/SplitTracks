@@ -1,3 +1,6 @@
+import { Player } from './player.js';
+import { API } from './api.js';
+
 const player = new Player();
 let jobId = null, jobData = null, duration = 0, updateTimer = null, _elapsedStart = 0, _elapsedTimer = null;
 
