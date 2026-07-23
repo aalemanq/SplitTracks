@@ -57,7 +57,9 @@ def _signal_process_tree(process: subprocess.Popen, *, force: bool = False) -> N
 
 
 def _find_bin(name: str) -> str:
-    bundled = Path(__file__).resolve().parent / "bin" / f"{name}{'.exe' if IS_WINDOWS else ''}"
+    import sys as _sys
+    base = Path(_sys.executable).parent if getattr(_sys, "frozen", False) else Path(__file__).resolve().parent
+    bundled = base / "bin" / f"{name}{'.exe' if IS_WINDOWS else ''}"
     if bundled.is_file():
         return str(bundled)
     return name

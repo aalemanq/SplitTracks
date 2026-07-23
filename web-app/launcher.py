@@ -8,13 +8,18 @@ import webbrowser
 import threading
 from pathlib import Path
 
-WEB_APP_DIR = Path(__file__).resolve().parent
-os.chdir(str(WEB_APP_DIR))
-
-ROOT = WEB_APP_DIR.parent
-sys.path.insert(0, str(ROOT))
-
 import uvicorn
+
+FROZEN = getattr(sys, "frozen", False)
+
+if FROZEN:
+    BASE_DIR = Path(sys.executable).parent
+else:
+    BASE_DIR = Path(__file__).resolve().parent.parent
+    sys.path.insert(0, str(BASE_DIR))
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+from server import app as server_app  # noqa: E402
 
 WEB_HOST = os.environ.get("SPLITTRACKS_HOST", "127.0.0.1")
 WEB_PORT = int(os.environ.get("SPLITTRACKS_PORT", "8745"))
@@ -28,7 +33,7 @@ def open_browser():
 if __name__ == "__main__":
     threading.Thread(target=open_browser, daemon=True).start()
     uvicorn.run(
-        "server:app",
+        server_app,
         host=WEB_HOST,
         port=WEB_PORT,
         log_level="info",

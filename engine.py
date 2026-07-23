@@ -135,7 +135,8 @@ def _signal_process_tree(process: subprocess.Popen, *, force: bool = False) -> N
 
 
 def _find_bin(name: str) -> str:
-    bundled = Path(__file__).resolve().parent / "bin" / f"{name}{'.exe' if IS_WINDOWS else ''}"
+    base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+    bundled = base / "bin" / f"{name}{'.exe' if IS_WINDOWS else ''}"
     if bundled.is_file():
         return str(bundled)
     return name
@@ -380,7 +381,8 @@ class SeparationEngine:
 
     @staticmethod
     def _find_ytdlp() -> Path | None:
-        bundled = Path(__file__).resolve().parent / "bin" / f"yt-dlp{'.exe' if IS_WINDOWS else ''}"
+        base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+        bundled = base / "bin" / f"yt-dlp{'.exe' if IS_WINDOWS else ''}"
         if bundled.is_file():
             return bundled
         system = shutil.which("yt-dlp")
@@ -551,7 +553,8 @@ class SeparationEngine:
 
     @staticmethod
     def _find_separator_python() -> Path | None:
-        bundled = Path(__file__).resolve().parent / ".venv" / ("Scripts" if IS_WINDOWS else "bin") / f"python{'.exe' if IS_WINDOWS else ''}"
+        base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
+        bundled = base / ".venv" / ("Scripts" if IS_WINDOWS else "bin") / f"python{'.exe' if IS_WINDOWS else ''}"
         if bundled.is_file():
             try:
                 check = subprocess.run(

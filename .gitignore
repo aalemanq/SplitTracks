@@ -13,3 +13,9 @@ bin/yt-dlp_macos
 # ffmpeg binaries
 bin/ffmpeg
 bin/ffprobe
+
+# Build output
+dist/build/
+dist/SplitTracks/
+dist/SplitTracks.spec
+dist/*.zip
