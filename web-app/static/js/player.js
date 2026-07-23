@@ -72,16 +72,11 @@ class Player {
     if (wasPlaying) { this.pausedAt = this.position(); this._stopSources(); this.playing = false; }
     this.pitchSemitones = semitones;
 
-    const rate = Math.pow(2, semitones / 12);
     const names = Object.keys(this.originals);
     for (const name of names) {
       const buf = this.originals[name];
       if (semitones === 0) { this.buffers[name] = buf; continue; }
-      const newLen = Math.max(1, Math.floor(buf.length / rate));
-      const offline = new OfflineAudioContext(buf.numberOfChannels, newLen, buf.sampleRate);
-      const src = offline.createBufferSource(); src.buffer = buf; src.playbackRate.value = rate;
-      src.connect(offline.destination); src.start(0);
-      this.buffers[name] = await offline.startRendering();
+      this.buffers[name] = PitchShifter.shift(this.ctx, buf, semitones);
     }
 
     this._rendering = false;
