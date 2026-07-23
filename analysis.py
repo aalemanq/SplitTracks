@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import math
 import os
+import platform
 import re
 import signal
 import subprocess
@@ -17,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 
 import numpy as np
+
+IS_WINDOWS = platform.system() == "Windows"
 
 
 class AnalysisError(RuntimeError):
@@ -37,6 +40,12 @@ ANALYSIS_DURATION_SECONDS = 180.0
 
 
 def _signal_process_tree(process: subprocess.Popen, *, force: bool = False) -> None:
+    if IS_WINDOWS:
+        try:
+            (process.kill if force else process.terminate)()
+        except ProcessLookupError:
+            pass
+        return
     signal_value = signal.SIGKILL if force else signal.SIGTERM
     try:
         os.killpg(os.getpgid(process.pid), signal_value)
@@ -45,6 +54,13 @@ def _signal_process_tree(process: subprocess.Popen, *, force: bool = False) -> N
             (process.kill if force else process.terminate)()
         except ProcessLookupError:
             pass
+
+
+def _find_bin(name: str) -> str:
+    bundled = Path(__file__).resolve().parent / "bin" / f"{name}{'.exe' if IS_WINDOWS else ''}"
+    if bundled.is_file():
+        return str(bundled)
+    return name
 
 
 
@@ -254,7 +270,7 @@ def _run_analysis_process(command: list[str], *, text: bool, cancel_event=None):
 
 def _decode_mono(path: Path, cancel_event=None) -> np.ndarray:
     command = [
-        "ffmpeg",
+        _find_bin("ffmpeg"),
         "-hide_banner",
         "-loglevel",
         "error",
@@ -541,7 +557,7 @@ def _detect_chords(
 
 def _measure_loudness(path: Path, cancel_event=None) -> float | None:
     command = [
-        "ffmpeg",
+        _find_bin("ffmpeg"),
         "-hide_banner",
         "-nostdin",
         "-nostats",

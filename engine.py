@@ -6,6 +6,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import platform
 import re
 import select
 import shutil
@@ -17,6 +18,8 @@ from urllib.parse import urlparse
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Callable, Iterable
+
+IS_WINDOWS = platform.system() == "Windows"
 
 
 class AudioEngineError(RuntimeError):
@@ -74,6 +77,12 @@ ProgressCallback = Callable[[float, str], None]
 
 
 def _signal_process_tree(process: subprocess.Popen, *, force: bool = False) -> None:
+    if IS_WINDOWS:
+        try:
+            (process.kill if force else process.terminate)()
+        except ProcessLookupError:
+            pass
+        return
     signal_value = signal.SIGKILL if force else signal.SIGTERM
     try:
         os.killpg(os.getpgid(process.pid), signal_value)
@@ -82,6 +91,13 @@ def _signal_process_tree(process: subprocess.Popen, *, force: bool = False) -> N
             (process.kill if force else process.terminate)()
         except ProcessLookupError:
             pass
+
+
+def _find_bin(name: str) -> str:
+    bundled = Path(__file__).resolve().parent / "bin" / f"{name}{'.exe' if IS_WINDOWS else ''}"
+    if bundled.is_file():
+        return str(bundled)
+    return name
 
 
 MODEL_NAME = "htdemucs_6s"
@@ -170,7 +186,7 @@ class SeparationEngine:
 
         result = _run(
             [
-                "ffprobe",
+                _find_bin("ffprobe"),
                 "-v",
                 "error",
                 "-show_entries",
@@ -334,8 +350,8 @@ class SeparationEngine:
 
     @staticmethod
     def _find_ytdlp() -> Path | None:
-        bundled = Path(__file__).resolve().parent / "bin" / "yt-dlp"
-        if bundled.is_file() and os.access(bundled, os.X_OK):
+        bundled = Path(__file__).resolve().parent / "bin" / f"yt-dlp{'.exe' if IS_WINDOWS else ''}"
+        if bundled.is_file():
             return bundled
         system = shutil.which("yt-dlp")
         return Path(system) if system else None
@@ -516,7 +532,7 @@ class SeparationEngine:
 
     @staticmethod
     def _find_separator_python() -> Path | None:
-        bundled = Path(__file__).resolve().parent / ".venv" / "bin" / "python"
+        bundled = Path(__file__).resolve().parent / ".venv" / ("Scripts" if IS_WINDOWS else "bin") / f"python{'.exe' if IS_WINDOWS else ''}"
         if bundled.is_file():
             try:
                 check = subprocess.run(
@@ -554,10 +570,10 @@ class SeparationEngine:
 
     def _render_audio(self, inputs: tuple[Path, ...], output: Path, sample_rate: int, channels: int, cancel_event=None) -> None:
         if len(inputs) == 1:
-            command = ["ffmpeg", "-hide_banner", "-nostdin", "-y", "-i", str(inputs[0])]
+            command = [_find_bin("ffmpeg"), "-hide_banner", "-nostdin", "-y", "-i", str(inputs[0])]
             filter_args: list[str] = []
         else:
-            command = ["ffmpeg", "-hide_banner", "-nostdin", "-y"]
+            command = [_find_bin("ffmpeg"), "-hide_banner", "-nostdin", "-y"]
             for source in inputs:
                 command.extend(["-i", str(source)])
             labels = "".join(f"[{index}:a]" for index in range(len(inputs)))
@@ -604,7 +620,7 @@ class SeparationEngine:
             partial = shift_dir / f"{_safe_name(Path(item['name']).stem)}.part.mp3"
             if not output.is_file() or output.stat().st_size < 1024:
                 command = [
-                    "ffmpeg",
+                    _find_bin("ffmpeg"),
                     "-hide_banner",
                     "-nostdin",
                     "-y",
@@ -700,7 +716,7 @@ class SeparationEngine:
             f"{labels}amix=inputs={len(active)}:duration=longest:dropout_transition=0:normalize=0[mix]"
         )
         command = [
-            "ffmpeg",
+            _find_bin("ffmpeg"),
             "-hide_banner",
             "-nostdin",
             "-y",
@@ -734,7 +750,7 @@ class SeparationEngine:
 
     def _max_volume(self, path: Path, cancel_event=None) -> float | None:
         result = _run(
-            ["ffmpeg", "-hide_banner", "-i", str(path), "-af", "volumedetect", "-f", "null", "-"],
+            [_find_bin("ffmpeg"), "-hide_banner", "-i", str(path), "-af", "volumedetect", "-f", "null", "-"],
             cancel_event=cancel_event,
         )
         text = result.stderr or result.stdout
