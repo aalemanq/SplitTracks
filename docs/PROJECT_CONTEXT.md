@@ -126,3 +126,28 @@ La versión web comparte el motor (`engine.py`, `harmony.py`, `analysis.py`) con
 - El pitch del audio no se transpone (Web Audio API no tiene pitch shift nativo); solo se transpone la visualización de acordes.
 - Los trabajos se pierden al reiniciar el servidor (estado en memoria).
 - La versión web no tiene waveform real (placeholder visual).
+
+## Portabilidad Windows (`feature/windows-port`)
+
+La rama `feature/windows-port` se enfoca en que la versión web funcione como ejecutable standalone en Windows. El objetivo es que el usuario final reciba un ZIP, lo descomprima, ejecute `SplitTracks.bat` y la app se abra en el navegador sin instalar nada.
+
+### Estrategia
+
+- **PyInstaller** empaqueta el servidor FastAPI + frontend en un `.exe`
+- **FFmpeg/ffprobe/yt-dlp** se bundlean en `bin/` como binarios standalone
+- **PyTorch + Demucs** se incluyen via `.venv/` copiada al bundle
+- El launcher abre el navegador automáticamente al iniciar el servidor
+
+### Dependencias externas
+
+| Binario | Uso | Origen |
+|---------|-----|--------|
+| `ffmpeg.exe` | Decodificación, mezcla, MP3 | https://ffmpeg.org/download.html |
+| `ffprobe.exe` | Metadata de audio | Incluido con FFmpeg |
+| `yt-dlp.exe` | Descarga de YouTube | https://github.com/yt-dlp/yt-dlp/releases |
+
+### Tamaño estimado
+
+- Bundle sin comprimir: ~1.2GB (PyTorch CPU es grande)
+- ZIP comprimido: ~400-600MB
+- Ver `docs/WINDOWS_PLAN.md` para el plan detallado y optimizaciones futuras.

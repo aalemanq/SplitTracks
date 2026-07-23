@@ -112,3 +112,92 @@ web-app\build\build-windows.bat
 ### Estado del server
 
 Jobs en memoria: `_jobs` dict. Reiniciar = perder jobs. Archivos en `~/Split Tracks/`.
+
+## Desarrollo Windows (rama `feature/windows-port`)
+
+### Requisitos previos
+
+1. **Python 3.12+**: `winget install Python.Python.3.12`
+   - Marcar "Add Python to PATH" durante instalación
+2. **FFmpeg**: `winget install Gyan.FFmpeg`
+3. **Git**: `winget install Git.Git`
+
+### Preparar entorno
+
+```cmd
+git clone https://github.com/aalemanq/SplitTracks.git
+cd SplitTracks
+git checkout feature/windows-port
+
+REM Crear venv con Demucs
+python -m venv .venv
+.venv\Scripts\activate
+pip install -r requirements-cpu.txt
+pip install -r web-app/requirements-web.txt
+
+REM Verificar
+python -c "import torch, demucs; print('OK')"
+```
+
+### Ejecutar en desarrollo
+
+```cmd
+.venv\Scripts\python web-app\server.py
+REM Abre http://localhost:8745
+```
+
+O con el launcher automático:
+
+```cmd
+web-app\run.bat
+```
+
+### Compilar ejecutable
+
+```cmd
+REM Build completo con ZIP portable
+web-app\build\build-windows.bat
+
+REM O solo el .exe
+.venv\Scripts\python web-app\build\build.py
+```
+
+Resultado en `dist/SplitTracks-windows/`.
+
+### Probar el bundle
+
+1. Copiar la carpeta `dist/SplitTracks-windows/SplitTracks/` a otra ubicación
+2. Ejecutar `SplitTracks.bat`
+3. Verificar que el navegador se abre y la app funciona
+4. Probar descarga de YouTube, separación, exportación
+
+### Binarios externos
+
+Antes de compilar, colocar en `bin/`:
+- `ffmpeg.exe` y `ffprobe.exe` (de FFmpeg)
+- `yt-dlp.exe` (de https://github.com/yt-dlp/yt-dlp/releases)
+
+El script `build-windows.bat` los copia automáticamente al bundle.
+
+### Validación en Windows
+
+```cmd
+REM Sintaxis
+.venv\Scripts\python -m py_compile engine.py harmony.py analysis.py web-app/server.py
+
+REM Tests unitarios
+.venv\Scripts\python -m unittest discover -s tests -v
+
+REM Verificar binarios
+bin\ffmpeg.exe -version
+bin\ffprobe.exe -version
+bin\yt-dlp.exe --version
+```
+
+### Puntos delicados en Windows
+
+- Las rutas usan `\` en vez de `/`, pero Python las maneja bien con `Path`
+- `os.killpg()` no funciona en Windows; usar `process.kill()` directamente
+- Los scripts `.sh` no funcionan; usar `.bat` o PowerShell
+- El `.venv` debe copiarse completo al bundle (PyTorch no se empaqueta bien con PyInstaller)
+- FFmpeg/yt-dlp deben estar en `bin/` o en PATH

@@ -1,31 +1,32 @@
 # Split Tracks · instrucciones para agentes
 
-Antes de cambiar código, lee `docs/PROJECT_CONTEXT.md` y `docs/DEVELOPMENT.md`.
+Antes de cambiar código, lee `docs/PROJECT_CONTEXT.md`, `docs/DEVELOPMENT.md` y `docs/WINDOWS_PLAN.md`.
 
 ## Reglas esenciales
 
-- Aplicación GTK4 exclusiva para Ubuntu/Linux; no migres a web, macOS ni Windows salvo petición explícita.
+- Aplicación GTK4 para Ubuntu/Linux (rama `main`) y versión web multiplataforma (rama `feature/cross-platform`).
 - Es una herramienta personal sin cuentas, premium, paywall, ventas ni arquitectura de biblioteca.
 - Mantén la separación local con `htdemucs_6s` en CPU, los WAV internos y la exportación MP3 bajo demanda.
 - No sustituyas el cifrado humano por análisis de acordes de audio: Cifra Club es la fuente canónica actual.
 - Conserva la transposición en vivo: cambia preescucha, tonalidad, acordes y grados sin guardar copias intermedias.
 - No hagas `git push` salvo petición explícita. Antes de commitear ejecuta sintaxis, tests y `git diff --check`.
 - No borres ni resetees cambios del usuario. No uses `git reset --hard` ni `git checkout --` sin autorización.
-- Ramas: trabaja **siempre** en ramas de feature desde `main`, nunca directamente en `main`.
-- Pregunta antes de mergear a `main`. No hagas merge sin confirmación del usuario.
-- Flujo por tarea: feature branch → cambios → validar → commit → preguntar merge → (si aprueba) merge a main y push.
+- Ramas: trabaja **siempre** en ramas de feature, nunca directamente en `main` ni `feature/cross-platform`.
+- Pregunta antes de mergear. No hagas merge sin confirmación del usuario.
+- Flujo por tarea: feature branch → cambios → validar → commit → preguntar merge → (si aprueba) merge y push.
 - No muestres código en las respuestas a menos que el usuario lo pida explícitamente. Sé conciso.
 
 ## Ramas del proyecto
 
 - **`main`**: versión GTK4 para Ubuntu/Linux (app.py + player.py GStreamer + interfaz nativa)
 - **`feature/cross-platform`**: versión web multiplataforma (FastAPI + HTML/CSS/JS + Web Audio API)
+- **`feature/windows-port`**: portabilidad y empaquetado para Windows (basada en `feature/cross-platform`)
 
-Las dos ramas comparten el motor: `engine.py`, `harmony.py`, `analysis.py`. La rama `feature/cross-platform` añade `web-app/` con su propio servidor, frontend y builds.
+Las tres ramas comparten el motor: `engine.py`, `harmony.py`, `analysis.py`. La rama `feature/cross-platform` añade `web-app/` con su propio servidor, frontend y builds. La rama `feature/windows-port` se enfoca en que la versión web funcione como ejecutable standalone en Windows.
 
 ## Mapa rápido
 
-### Compartido (ambas ramas)
+### Compartido (todas las ramas)
 - `engine.py`: ffprobe/FFmpeg, yt-dlp, Demucs, cancelación, mezcla y MP3.
 - `harmony.py`: modelo de cifrado, scraping/cache de Cifra Club, secciones y transposición.
 - `analysis.py`: BPM, tonalidad estimada, loudness y análisis legado de audio.
@@ -47,6 +48,23 @@ Las dos ramas comparten el motor: `engine.py`, `harmony.py`, `analysis.py`. La r
 - `web-app/build/`: scripts PyInstaller para Windows y macOS.
 - `web-app/run.sh` / `run.bat`: scripts de arranque rápido.
 
+### Rama `feature/windows-port` (Windows standalone)
+- **Objetivo**: Que el usuario final reciba un ZIP, lo descomprima, ejecute `SplitTracks.bat` y la app se abra en el navegador.
+- **Estado**: En desarrollo. Ver `docs/WINDOWS_PLAN.md` para el plan detallado.
+- **Archivos clave**:
+  - `web-app/build/build.py`: script de PyInstaller
+  - `web-app/build/build-windows.bat`: script de build + ZIP portable
+  - `web-app/run.bat`: launcher para desarrollo
+  - `web-app/README-WINDOWS.md`: instrucciones para el usuario
+- **Dependencias externas a bundlear**:
+  - `bin/ffmpeg.exe` y `bin/ffprobe.exe`
+  - `bin/yt-dlp.exe`
+  - `.venv/` con PyTorch CPU y Demucs
+- **Modificaciones pendientes**:
+  - `engine.py`: detectar Windows y buscar binarios en `bin/`
+  - `launcher.py`: asegurar que Demucs usa el Python del `.venv`
+  - Probar el bundle en máquina Windows limpia
+
 ## Estado actual (feature/cross-platform)
 - Server: `cd web-app && ../.venv/bin/python server.py` → http://localhost:8745
 - Funcionalidades completas: carga YouTube/archivo, Demucs, mixer, mute/solo/vol, pitch, acordes Cifra Club, grados, métricas, export MP3
@@ -60,5 +78,6 @@ Las dos ramas comparten el motor: `engine.py`, `harmony.py`, `analysis.py`. La r
 - Persistencia de jobs en disco
 - Waveform real
 - Probar builds en Windows/macOS reales
+- **Windows**: Bundlear FFmpeg/yt-dlp, probar Demucs desde el .exe, optimizar tamaño
 
 Lee la documentación enlazada antes de proponer una arquitectura nueva.
