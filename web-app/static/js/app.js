@@ -243,7 +243,8 @@ async function changePitch(delta,reset=false){
     try{
       const res=await API.transposeChords(chartUrl,semitones);
       if(res.sections){ chordData._transposed=res.sections; chordData._degrees=res.degrees; if(jobData){ jobData._transposed=res.sections; jobData._degrees=res.degrees; } buildChordPanels(chordData); }
-      if(res.key){ let meta=[]; if(jobData?.bpm) meta.push(`<span class="metric-pill bpm">${Math.round(jobData.bpm)} BPM</span>`); meta.push(`<span class="metric-pill key">Tono: ${res.key}</span>`); $('studioMeta').innerHTML=meta.join(' '); }
+      if(res.key){ let meta=[]; if(jobData?.bpm) meta.push(`<span class="metric-pill bpm">${Math.round(jobData.bpm)} BPM</span>`); meta.push(`<span class="metric-pill key">Tono: ${res.key}</span>`); $('studioMeta').innerHTML=meta.join(' ');
+        const grid=$('metricsGrid'); if(grid.children.length>0){ const kv=grid.children[0].querySelector('.metric-value'); if(kv) kv.textContent=res.key; } }
     }catch(e){}
   }
 }
