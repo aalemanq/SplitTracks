@@ -26,19 +26,21 @@ $('addUrlBtn').onclick=()=>{ const url=$('youtubeUrl').value.trim(); if(url) sta
 $('fileInput').onchange=()=>{ const f=$('fileInput').files[0]; if(f) startJob({file:f}); };
 
 async function startJob({url,file}={}){
+  console.log('startJob called',{url,file});
   const form = new FormData(); if(file) form.append('file',file); if(url) form.append('url',url);
   form.append('stems',JSON.stringify([...selectedStems]));
+  console.log('selectedStems',[...selectedStems]);
   $('progressPanel').hidden=false; $('studioPanel').hidden=true;
   $('progressTitle').textContent='Enviando...'; $('progressPct').textContent='0%'; $('progressPhase').textContent='';
   $('cancelBtn').hidden=false; $('processBtn').disabled=true;
   _elapsedStart=Date.now(); _startElapsed();
   try{
     const job = await API.createJob(form); jobId=job.id;
+    console.log('job created',jobId);
     $('progressTitle').textContent='Procesando audio';
-    // Fix 8: fetch chords in parallel while Demucs runs
     if(url){ fetchChordsInBackground(); }
     pollJob(jobId);
-  }catch(e){ $('progressTitle').textContent='Error'; $('progressPhase').textContent=e.message||'Error'; $('cancelBtn').hidden=true; _stopElapsed(); }
+  }catch(e){ console.error('startJob error',e); $('progressTitle').textContent='Error'; $('progressPhase').textContent=e.message||'Error'; $('cancelBtn').hidden=true; _stopElapsed(); }
 }
 $('cancelBtn').onclick=()=>{ if(jobId){API.cancelJob(jobId);$('cancelBtn').hidden=true;$('progressPhase').textContent='Cancelando...';} };
 
