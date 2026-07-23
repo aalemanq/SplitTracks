@@ -24,10 +24,10 @@ for /f "tokens=2" %%v in ('python --version 2^>^&1') do echo   Python %%v
 
 REM ── 2. Crear venv ───────────────────────────────
 echo.
-echo [2/4] Creando entorno virtual...
+echo [2/4] Creando entorno virtual (portable)...
 if not exist ".venv\Scripts\python.exe" (
-    python -m venv .venv
-    echo   .venv creado
+    python -m venv --copies .venv
+    echo   .venv portable creado
 ) else (
     echo   .venv ya existe
 )
