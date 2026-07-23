@@ -14,9 +14,10 @@ echo === Building Split Tracks for Windows ===
 echo [1/4] Installing dependencies...
 %VENV_PYTHON% -m pip install -q -r web-app\requirements-web.txt pyinstaller
 
-echo [2/4] Building .exe...
+echo [2/4] Building .exe (windowed - sin consola)...
 %VENV_PYTHON% -m PyInstaller ^
   --onedir ^
+  --windowed ^
   --name "%APP_NAME%" ^
   --add-data "web-app\static;static" ^
   --distpath "%DIST%" ^
@@ -43,9 +44,8 @@ if !errorlevel! equ 0 (
   for /f "delims=" %%i in ('where ffprobe') do copy "%%i" "%DIST%\%APP_NAME%\bin\" >nul
 )
 
-REM Create launcher batch
-echo @echo off > "%DIST%\%APP_NAME%\SplitTracks.bat"
-echo start "" "%APP_NAME%.exe" >> "%DIST%\%APP_NAME%\SplitTracks.bat"
+REM Create launcher VBS (no console window)
+echo CreateObject("Wscript.Shell").Run "%APP_NAME%.exe", 0, False > "%DIST%\%APP_NAME%\SplitTracks.vbs"
 
 echo [4/4] Creating portable zip...
 if exist "%DIST%\SplitTracks-windows.zip" del "%DIST%\SplitTracks-windows.zip"

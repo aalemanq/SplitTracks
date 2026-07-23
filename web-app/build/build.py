@@ -26,7 +26,7 @@ def main():
 
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--onedir", "--name", NAME,
+        "--onedir", "--windowed", "--name", NAME,
         f"--add-data={add_data}",
         "--distpath", str(DIST),
         "--workpath", str(DIST / "build"),
@@ -62,7 +62,7 @@ def main():
 
     # Launcher
     if platform == "win32":
-        (bundle / "SplitTracks.bat").write_text('@echo off\r\nstart "" "SplitTracks.exe"\r\n')
+        (bundle / "SplitTracks.vbs").write_text('CreateObject("Wscript.Shell").Run "SplitTracks.exe", 0, False\r\n')
     else:
         (bundle / "SplitTracks").write_text("#!/bin/bash\ncd \"$(dirname \"$0\")\"\n./SplitTracks\n")
         (bundle / "SplitTracks").chmod(0o755)
