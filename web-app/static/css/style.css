@@ -82,8 +82,8 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .metric-detail{font-size:10px;color:var(--dim);margin-top:1px}
 
 /* Pitch */
-.pitch-controls{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}
-.pitch-value{font-size:14px;font-weight:900;color:var(--cyan);min-width:160px;text-align:center;padding:4px 8px;border-radius:8px;background:var(--cyan-soft)}
+.pitch-controls{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pitch-value{font-size:14px;font-weight:900;color:var(--cyan);width:200px;flex-shrink:0;text-align:center;padding:4px 8px;border-radius:8px;background:var(--cyan-soft)}
 
 /* Studio */
 .studio-header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:8px}
