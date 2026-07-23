@@ -14,6 +14,10 @@ FROZEN = getattr(sys, "frozen", False)
 
 if FROZEN:
     BASE_DIR = Path(sys.executable).parent
+    if sys.stderr is None:
+        sys.stderr = open(os.devnull, "w")
+    if sys.stdout is None:
+        sys.stdout = open(os.devnull, "w")
 else:
     BASE_DIR = Path(__file__).resolve().parent.parent
     sys.path.insert(0, str(BASE_DIR))
