@@ -102,7 +102,7 @@ jobs:
 
       - name: Download yt-dlp
         run: |
-          mkdir -p bin
+          mkdir bin
           curl -sSLo bin/yt-dlp.exe https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
         shell: cmd
 
@@ -114,15 +114,20 @@ jobs:
         shell: cmd
 
       - name: Build
-        run: build\build-windows.bat
-        env:
-          SPLITTRACKS_VERSION: ${{ github.ref_name }}
+        run: |
+          copy C:\ProgramData\chocolatey\bin\ffmpeg.exe bin\ffmpeg.exe
+          copy C:\ProgramData\chocolatey\bin\ffprobe.exe bin\ffprobe.exe
+          .venv\Scripts\python build\build.py
         shell: cmd
+
+      - name: Zip bundle
+        run: Compress-Archive -Path dist\SplitTracks-win32\* -DestinationPath dist\SplitTracks-windows.zip
+        shell: pwsh
 
       - uses: actions/upload-artifact@v4
         with:
           name: SplitTracks-windows
-          path: dist/SplitTracks-windows/SplitTracks-windows.zip
+          path: dist/SplitTracks-windows.zip
 
   release:
     needs: [build-linux, build-windows]
