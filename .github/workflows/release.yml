@@ -43,6 +43,7 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
+    continue-on-error: true  # macOS build experimental, no bloquea release
     steps:
       - uses: actions/checkout@v4
 
