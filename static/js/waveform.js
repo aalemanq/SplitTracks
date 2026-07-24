@@ -67,7 +67,7 @@ class WaveformDisplay {
   _findVuCanvases() {
     this._vuCanvases = [];
     this._vuAnalysers = [];
-    const els = document.querySelectorAll('.vu-meter canvas');
+    const els = document.querySelectorAll('.vu-bar');
     for (let i = 0; i < els.length; i++) {
       this._vuCanvases.push(els[i]);
       this._vuAnalysers.push(this.player.analysers[i] || null);
@@ -114,8 +114,6 @@ class WaveformDisplay {
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, barW, h);
       }
-      ctx.strokeStyle = '#1a5662'; ctx.lineWidth = 0.5;
-      ctx.strokeRect(0, 0, w, h);
     }
   }
 

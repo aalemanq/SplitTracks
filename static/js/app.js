@@ -158,13 +158,13 @@ function buildMixer(job){
     const stemInfo = STEMS.find(st=>st.name===displayName) || {key:'other'};
     const row=document.createElement('div'); row.className='track-row';
 
-    const vu=document.createElement('div'); vu.className='vu-meter';
-    const vuCanvas=document.createElement('canvas'); vuCanvas.width=40; vuCanvas.height=8;
-    vu.appendChild(vuCanvas); row.appendChild(vu);
-
     const chip=document.createElement('div');
-    chip.className=`chip active ${stemInfo.key}`; chip.textContent=displayName;
-    chip.style.minWidth='100px';
+    chip.className=`chip active ${stemInfo.key}`;
+    chip.style.flexDirection='column'; chip.style.alignItems='stretch'; chip.style.gap='2px';
+    const chipLabel=document.createElement('span'); chipLabel.textContent=displayName; chipLabel.style.textAlign='center';
+    chip.appendChild(chipLabel);
+    const vuBar=document.createElement('canvas'); vuBar.className='vu-bar'; vuBar.width=100; vuBar.height=4;
+    chip.appendChild(vuBar);
     row.appendChild(chip);
 
     const volWrap=document.createElement('div'); volWrap.className='track-volume';
