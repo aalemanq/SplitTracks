@@ -189,6 +189,7 @@ function buildMixer(job){
 
     const peaks=document.createElement('canvas'); peaks.className='track-peaks'; peaks.width=300; peaks.height=28;
     row.appendChild(peaks);
+    mixer.appendChild(row);
   });
 }
 
