@@ -129,10 +129,10 @@ def _make_venv_portable(bundle: Path, platform: str) -> None:
 
     if is_win:
         venv_python.with_suffix(".bat").write_text(
-            f'@echo off\r\n'
-            f'set PYTHONHOME={internal_py}\r\n'
-            f'set PYTHONPATH={bundle / ".venv" / "Lib" / "site-packages"}\r\n'
-            f'"{venv_python_orig}" %*\r\n'
+            '@echo off\r\n'
+            'set PYTHONHOME=%~dp0..\\..\\_internal\\python3.12\r\n'
+            'set PYTHONPATH=%~dp0..\\Lib\\site-packages\r\n'
+            '"%~dp0python.orig.exe" %*\r\n'
         )
     else:
         venv_python.write_text(
