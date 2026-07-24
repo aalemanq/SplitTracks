@@ -563,28 +563,38 @@ class SeparationEngine:
         frozen = getattr(sys, "frozen", False)
         base = Path(sys.executable).parent if frozen else Path(__file__).resolve().parent
 
-        # También buscar en sys._MEIPASS para one-file, o en el directorio de _internal
         candidates = [base]
         if frozen:
             meipass = getattr(sys, "_MEIPASS", "")
             if meipass:
                 candidates.insert(0, Path(meipass))
-            # Si el ejecutable está en un subdirectorio, probar el padre
             candidates.append(base.parent)
 
         for base_dir in candidates:
-            venv_bin = ".venv" / ("Scripts" if IS_WINDOWS else "bin")
-            names = ["python.bat", "python.exe"] if IS_WINDOWS else ["python"]
+            venv_bin = Path(".venv") / ("Scripts" if IS_WINDOWS else "bin")
+            names = ["python.bat", "python.orig.exe"] if IS_WINDOWS else ["python"]
             for name in names:
                 bundled = base_dir / venv_bin / name
                 _log.info("ML check: trying %s", bundled)
                 if bundled.is_file():
                     try:
+                        if str(bundled).endswith(".bat"):
+                            cmd = ["cmd", "/c", str(bundled), "-c", "import demucs"]
+                        else:
+                            cmd = [str(bundled), "-c", "import demucs"]
+                        env = {}
+                        for k in ("SYSTEMROOT", "PATH", "TEMP", "TMP"):
+                            if k in os.environ:
+                                env[k] = os.environ[k]
+                        if IS_WINDOWS:
+                            env["PYTHONHOME"] = str(base_dir / "_internal" / "python3.12")
+                            env["PYTHONPATH"] = str(base_dir / ".venv" / "Lib" / "site-packages")
                         check = subprocess.run(
-                            [str(bundled), "-c", "import demucs"],
+                            cmd,
                             check=False,
                             capture_output=True,
                             text=True,
+                            env=env,
                             creationflags=_NO_WINDOW,
                         )
                     except OSError:
@@ -609,8 +619,7 @@ class SeparationEngine:
             return None
         return Path(executable) if check.returncode == 0 else None
 
-    @staticmethod
-    def _demucs_error(lines: list[str]) -> str:
+    def _demucs_error(self, lines: list[str]) -> str:
         joined = " ".join(lines).lower()
         if "no module named" in joined:
             return "El entorno Demucs está incompleto. Ejecuta ./setup-model.sh y vuelve a intentarlo."
@@ -618,7 +627,8 @@ class SeparationEngine:
             return "Demucs se quedó sin memoria. Cierra otras aplicaciones y vuelve a probar."
         if "download" in joined or "connection" in joined:
             return "No se pudo descargar el modelo Demucs. Comprueba la conexión y vuelve a intentarlo."
-        return "Demucs no pudo completar la separación. Revisa el audio o prueba con una mezcla más corta."
+        tail = " ".join(lines[-3:]).strip()
+        return f"Demucs no pudo completar la separación: {tail}" if tail else "Demucs no pudo completar la separación. Revisa el audio o prueba con una mezcla más corta."
 
     def _render_audio(self, inputs: tuple[Path, ...], output: Path, sample_rate: int, channels: int, cancel_event=None) -> None:
         if len(inputs) == 1:

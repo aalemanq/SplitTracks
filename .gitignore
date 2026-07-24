@@ -16,3 +16,6 @@ bin/ffprobe
 
 # Build output
 dist/
+
+# Downloaded media
+*.webm

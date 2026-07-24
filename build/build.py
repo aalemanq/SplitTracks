@@ -118,6 +118,11 @@ def _make_venv_portable(bundle: Path, platform: str) -> None:
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "test", "tests",
                                                       "idlelib", "tkinter", "turtledemo",
                                                       "distutils", "ensurepip", "venv"))
+    if is_win and not (internal_py / "DLLs").exists():
+        dlls_src = Path(sys.base_prefix) / "DLLs"
+        if dlls_src.exists():
+            shutil.copytree(dlls_src, internal_py / "DLLs", symlinks=True,
+                            ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
     venv_python_orig = venv_python.parent / ("python.orig.exe" if is_win else "python.orig")
     if not venv_python_orig.exists():
         shutil.move(str(venv_python), str(venv_python_orig))
