@@ -34,7 +34,7 @@ async function startJob({url,file}={}){
   const form = new FormData(); if(file) form.append('file',file); if(url) form.append('url',url);
   form.append('stems',JSON.stringify([...selectedStems]));
   $('progressPanel').hidden=false; $('studioPanel').hidden=true;
-  $('waveformContainer').hidden=true; $('spectrumCanvas').hidden=true; waveform.stop();
+  $('spectrumCanvas').hidden=true; waveform.stop();
   $('progressTitle').textContent='Enviando...'; $('progressPct').textContent='0%'; $('progressPhase').textContent='';
   $('cancelBtn').hidden=false; $('processBtn').disabled=true;
   _elapsedStart=Date.now(); _startElapsed();
@@ -103,7 +103,7 @@ async function buildStudio(job){
   for(const s of job.stems){ s.path=API.stemUrl(job.id,s.file); s.volume=1;s.mute=false;s.solo=false; }
   duration=await player.load(job.stems);
   $('timeline').max=duration;$('totalTime').textContent=fmtTime(duration);$('currentTime').textContent='0:00';
-  $('waveformContainer').hidden=false; $('spectrumCanvas').hidden=false; waveform.init();
+  $('spectrumCanvas').hidden=false; waveform.init();
 }
 
 // ── Analysis metrics ── Fix 6+7: only 6 metrics, unique chord count
@@ -170,7 +170,8 @@ function buildMixer(job){
     soloBtn.onclick=()=>{ s.solo=!s.solo; soloBtn.classList.toggle('active',s.solo); player.setSolo(i,s.solo); saveState(); };
     btns.appendChild(soloBtn); row.appendChild(btns);
 
-    const spacer=document.createElement('div'); spacer.className='track-spacer'; row.appendChild(spacer);
+    const wf=document.createElement('canvas'); wf.className='track-wave'; wf.width=200; wf.height=30;
+    row.appendChild(wf);
 
     const volWrap=document.createElement('div'); volWrap.className='track-volume';
     const volSlider=document.createElement('input'); volSlider.type='range'; volSlider.min='0'; volSlider.max='125'; volSlider.value='100';
