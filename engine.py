@@ -573,26 +573,29 @@ class SeparationEngine:
             candidates.append(base.parent)
 
         for base_dir in candidates:
-            bundled = base_dir / ".venv" / ("Scripts" if IS_WINDOWS else "bin") / f"python{'.exe' if IS_WINDOWS else ''}"
-            _log.info("ML check: trying %s", bundled)
-            if bundled.is_file():
-                try:
-                    check = subprocess.run(
-                        [str(bundled), "-c", "import demucs"],
-                        check=False,
-                        capture_output=True,
-                        text=True,
-                        creationflags=_NO_WINDOW,
-                    )
-                except OSError:
-                    check = None
-                if check is not None and check.returncode == 0:
-                    _log.info("ML found: %s", bundled)
-                    return bundled
-                _log.warning("ML check failed at %s: rc=%s stderr=%s",
-                             bundled,
-                             check.returncode if check else "OSError",
-                             (check.stderr.strip() if check and check.stderr else ""))
+            venv_bin = ".venv" / ("Scripts" if IS_WINDOWS else "bin")
+            names = ["python.bat", "python.exe"] if IS_WINDOWS else ["python"]
+            for name in names:
+                bundled = base_dir / venv_bin / name
+                _log.info("ML check: trying %s", bundled)
+                if bundled.is_file():
+                    try:
+                        check = subprocess.run(
+                            [str(bundled), "-c", "import demucs"],
+                            check=False,
+                            capture_output=True,
+                            text=True,
+                            creationflags=_NO_WINDOW,
+                        )
+                    except OSError:
+                        check = None
+                    if check is not None and check.returncode == 0:
+                        _log.info("ML found: %s", bundled)
+                        return bundled
+                    _log.warning("ML check failed at %s: rc=%s stderr=%s",
+                                 bundled,
+                                 check.returncode if check else "OSError",
+                                 (check.stderr.strip() if check and check.stderr else ""))
         executable = shutil.which("python3") or sys.executable
         try:
             check = subprocess.run(
