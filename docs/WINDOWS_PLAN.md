@@ -4,14 +4,14 @@
 
 El usuario final recibe un archivo ZIP, lo descomprime, ejecuta `SplitTracks.bat` (o `.exe`) y la app se abre automáticamente en el navegador. No necesita instalar Python, FFmpeg ni ninguna dependencia.
 
-## Estado actual (feature/cross-platform)
+## Estado actual (main)
 
-La rama `feature/cross-platform` ya tiene una versión web funcional:
-- **Backend**: FastAPI + Uvicorn (`web-app/server.py`)
-- **Frontend**: HTML/CSS/JS con Web Audio API (`web-app/static/`)
+La rama `main` ya tiene una versión web funcional (proyecto aplanado):
+- **Backend**: FastAPI + Uvicorn (`server.py`)
+- **Frontend**: HTML/CSS/JS con Web Audio API (`static/`)
 - **Motor compartido**: `engine.py`, `harmony.py`, `analysis.py`
-- **Builds**: Scripts de PyInstaller en `web-app/build/`
-- **Launcher**: `web-app/launcher.py` abre el navegador automáticamente
+- **Builds**: Scripts de PyInstaller en `build/`
+- **Launcher**: `launcher.py` abre el navegador automáticamente
 
 ### Funcionalidades completas
 - Carga de YouTube y archivos locales
@@ -63,7 +63,7 @@ winget install Git.Git
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements-cpu.txt
-pip install -r web-app/requirements-web.txt
+pip install -r requirements-web.txt
 ```
 
 **Verificación**:
@@ -76,7 +76,7 @@ pip install -r web-app/requirements-web.txt
 **Objetivo**: Verificar que todo funciona antes de compilar.
 
 ```cmd
-.venv\Scripts\python web-app/server.py
+.venv\Scripts\python server.py
 ```
 
 Abrir `http://localhost:8745` y probar:
@@ -92,7 +92,7 @@ Abrir `http://localhost:8745` y probar:
 **Objetivo**: Generar el ejecutable standalone.
 
 ```cmd
-.venv\Scripts\python web-app/build/build.py
+.venv\Scripts\python build/build.py
 ```
 
 El resultado queda en `dist/SplitTracks-win32/`.
@@ -102,7 +102,7 @@ El resultado queda en `dist/SplitTracks-win32/`.
 **Objetivo**: Crear el ZIP distribuible.
 
 ```cmd
-web-app\build\build-windows.bat
+build\build-windows.bat
 ```
 
 Genera:

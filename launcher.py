@@ -19,10 +19,10 @@ if FROZEN:
     if sys.stdout is None:
         sys.stdout = open(os.devnull, "w")
 else:
-    BASE_DIR = Path(__file__).resolve().parent.parent
+    BASE_DIR = Path(__file__).resolve().parent
     sys.path.insert(0, str(BASE_DIR))
 
-sys.path.insert(0, str(Path(__file__).resolve().parent))
+sys.path.insert(0, str(BASE_DIR))
 from server import app as server_app  # noqa: E402
 
 WEB_HOST = os.environ.get("SPLITTRACKS_HOST", "127.0.0.1")

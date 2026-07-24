@@ -3,7 +3,7 @@
 # Requirements: Python 3, PyInstaller, create-dmg (brew install create-dmg)
 set -euo pipefail
 
-cd "$(dirname "$0")/../.."
+cd "$(dirname "$0")/.."
 
 APP_NAME="SplitTracks"
 VENV_PYTHON=".venv/bin/python"
@@ -14,14 +14,14 @@ echo "=== Building Split Tracks for macOS ==="
 
 # 1. Install dependencies
 echo "[1/5] Installing dependencies..."
-$VENV_PYTHON -m pip install -q -r web-app/requirements-web.txt pyinstaller
+$VENV_PYTHON -m pip install -q -r requirements-web.txt pyinstaller
 
 # 2. Build with PyInstaller
 echo "[2/5] Building .app bundle..."
 $VENV_PYTHON -m PyInstaller \
   --onedir \
   --name "$APP_NAME" \
-  --add-data "web-app/static:static" \
+  --add-data "static:static" \
   --distpath "$DIST" \
   --workpath "$DIST/build" \
   --specpath "$DIST" \
@@ -29,7 +29,7 @@ $VENV_PYTHON -m PyInstaller \
   --clean \
   --windowed \
   --osx-bundle-identifier "com.splittracks.app" \
-  web-app/launcher.py
+  launcher.py
 
 # 3. Copy binary tools into bundle
 echo "[3/5] Bundling tools..."

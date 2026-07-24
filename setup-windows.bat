@@ -108,9 +108,9 @@ echo ================================================
 echo  Instalacion completada.
 echo.
 echo  Para ejecutar Split Tracks:
-echo    web-app\run.bat
+echo    run.bat
 echo.
 echo  Para compilar el ejecutable:
-echo    web-app\build\build-windows.bat
+echo    build\build-windows.bat
 echo ================================================
 pause

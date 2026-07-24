@@ -3,7 +3,7 @@ REM Build Split Tracks for Windows
 REM Requirements: Python 3 with pip
 
 setlocal enabledelayedexpansion
-cd /d "%~dp0\..\.."
+cd /d "%~dp0\.."
 
 set APP_NAME=SplitTracks
 set VENV_PYTHON=.venv\Scripts\python.exe
@@ -12,20 +12,20 @@ set DIST=dist\%APP_NAME%-windows
 echo === Building Split Tracks for Windows ===
 
 echo [1/4] Installing dependencies...
-%VENV_PYTHON% -m pip install -q -r web-app\requirements-web.txt pyinstaller
+%VENV_PYTHON% -m pip install -q -r requirements-web.txt pyinstaller
 
 echo [2/4] Building .exe (windowed - sin consola)...
 %VENV_PYTHON% -m PyInstaller ^
   --onedir ^
   --windowed ^
   --name "%APP_NAME%" ^
-  --add-data "web-app\static;static" ^
+  --add-data "static;static" ^
   --distpath "%DIST%" ^
   --workpath "%DIST%\build" ^
   --specpath "%DIST%" ^
   --noconfirm ^
   --clean ^
-  web-app\launcher.py
+  launcher.py
 
 echo [3/4] Bundling tools...
 mkdir "%DIST%\%APP_NAME%\bin" 2>nul

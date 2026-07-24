@@ -2,10 +2,10 @@
 
 ## Entorno
 
-Ubuntu 24.04.4 LTS, Python del sistema para GTK4 y `.venv` para el motor ML. Dependencias del sistema:
+Ubuntu 24.04.4 LTS, `.venv` para el motor ML. Dependencias del sistema:
 
 ```bash
-sudo apt install python3 python3-venv python3-gi gir1.2-gtk-4.0 gir1.2-gstreamer-1.0 ffmpeg gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad
+sudo apt install python3 python3-venv ffmpeg
 ```
 
 Preparación ML:
@@ -22,26 +22,10 @@ Preparación ML:
 Desde la raíz:
 
 ```bash
-python3 -m py_compile app.py analysis.py engine.py player.py harmony.py
-./.venv/bin/python -m unittest discover -s tests -v
+python3 -m py_compile analysis.py engine.py harmony.py
+.venv/bin/python -m unittest discover -s tests -v
 git diff --check
 ```
-
-Para validar CSS GTK cuando hay backend disponible:
-
-```bash
-GDK_BACKEND=headless ./.venv/bin/python - <<'PY'
-from pathlib import Path
-import gi
-gi.require_version("Gtk", "4.0")
-from gi.repository import Gtk
-provider = Gtk.CssProvider()
-provider.load_from_path(str(Path("style.css").resolve()))
-print("CSS válido")
-PY
-```
-
-El warning de GDK sobre backend headless puede aparecer en este entorno aunque el proveedor CSS cargue correctamente.
 
 ## Tests actuales
 
@@ -61,25 +45,24 @@ Los tests no deben depender de una consulta de red real. Para probar scraping, u
 
 ## Puntos delicados
 
-- GTK solo se toca desde el hilo principal; los workers devuelven callbacks con `GLib.idle_add`.
 - Toda operación de FFmpeg/Demucs/yt-dlp larga debe tener cancelación y limpieza de temporales.
-- No uses `subprocess.run()` sin cancelación en una ruta que pueda ejecutarse mientras la ventana está abierta.
-- Cualquier nueva fuente de acordes debe devolver `ChordCandidate`/`ChordChart`, no contaminar `app.py` con HTML.
+- No uses `subprocess.run()` sin cancelación en una ruta que pueda ejecutarse mientras el servidor está activo.
+- Cualquier nueva fuente de acordes debe devolver `ChordCandidate`/`ChordChart`, no contaminar `server.py` con HTML.
 - Si cambias el modelo, formato interno o pipeline de audio, actualiza README, `PROVENANCE.json` y tests afectados.
 
-## Desarrollo web (rama `feature/cross-platform`)
+## Desarrollo web
 
 ### Arranque rápido
 
 ```bash
-cd web-app && ../.venv/bin/python server.py
+.venv/bin/python server.py
 # → http://localhost:8745
 ```
 
 ### Validación
 
 ```bash
-python3 -m py_compile web-app/server.py web-app/launcher.py
+python3 -m py_compile server.py launcher.py
 ./.venv/bin/python -m unittest discover -s tests -v
 ```
 
@@ -100,20 +83,20 @@ curl -s "http://127.0.0.1:8745/api/chords/search?artist=Adele&title=Someone%20Li
 
 ```bash
 # Genérico
-.venv/bin/python web-app/build/build.py
+.venv/bin/python build/build.py
 
 # macOS (.app + DMG)
-./web-app/build/build-macos.sh
+./build/build-macos.sh
 
 # Windows (.exe + ZIP)
-web-app\build\build-windows.bat
+build\build-windows.bat
 ```
 
 ### Estado del server
 
 Jobs en memoria: `_jobs` dict. Reiniciar = perder jobs. Archivos en `~/Split Tracks/`.
 
-## Desarrollo Windows (rama `feature/windows-port`)
+## Desarrollo Windows
 
 ### Requisitos previos
 
@@ -127,13 +110,12 @@ Jobs en memoria: `_jobs` dict. Reiniciar = perder jobs. Archivos en `~/Split Tra
 ```cmd
 git clone https://github.com/aalemanq/SplitTracks.git
 cd SplitTracks
-git checkout feature/windows-port
 
 REM Crear venv con Demucs
 python -m venv .venv
 .venv\Scripts\activate
 pip install -r requirements-cpu.txt
-pip install -r web-app/requirements-web.txt
+pip install -r requirements-web.txt
 
 REM Verificar
 python -c "import torch, demucs; print('OK')"
@@ -142,24 +124,24 @@ python -c "import torch, demucs; print('OK')"
 ### Ejecutar en desarrollo
 
 ```cmd
-.venv\Scripts\python web-app\server.py
+.venv\Scripts\python server.py
 REM Abre http://localhost:8745
 ```
 
 O con el launcher automático:
 
 ```cmd
-web-app\run.bat
+run.bat
 ```
 
 ### Compilar ejecutable
 
 ```cmd
 REM Build completo con ZIP portable
-web-app\build\build-windows.bat
+build\build-windows.bat
 
 REM O solo el .exe
-.venv\Scripts\python web-app\build\build.py
+.venv\Scripts\python build\build.py
 ```
 
 Resultado en `dist/SplitTracks-windows/`.
@@ -183,7 +165,7 @@ El script `build-windows.bat` los copia automáticamente al bundle.
 
 ```cmd
 REM Sintaxis
-.venv\Scripts\python -m py_compile engine.py harmony.py analysis.py web-app/server.py
+.venv\Scripts\python -m py_compile engine.py harmony.py analysis.py server.py
 
 REM Tests unitarios
 .venv\Scripts\python -m unittest discover -s tests -v

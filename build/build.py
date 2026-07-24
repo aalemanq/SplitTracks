@@ -4,9 +4,9 @@
 import os, shutil, subprocess, sys
 from pathlib import Path
 
-ROOT = Path(__file__).resolve().parent.parent.parent
-WEB_APP = Path(__file__).resolve().parent.parent
-STATIC = WEB_APP / "static"
+ROOT = Path(__file__).resolve().parent.parent
+WEB_APP = ROOT
+STATIC = ROOT / "static"
 DIST = ROOT / "dist"
 NAME = "SplitTracks"
 
@@ -20,7 +20,7 @@ def main():
     DIST.mkdir(exist_ok=True)
 
     sep = ";" if platform == "win32" else ":"
-    add_data = f"web-app/static{sep}static"
+    add_data = f"static{sep}static"
     if (ROOT / "assets").exists():
         add_data += f"{sep}assets{sep}assets"
 

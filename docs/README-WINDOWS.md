@@ -14,8 +14,8 @@
 cd SplitTracks
 python -m venv .venv
 .venv\Scripts\activate
-pip install -r web-app\requirements-web.txt
-python web-app\server.py
+pip install -r requirements-web.txt
+python server.py
 ```
 
 Abre `http://localhost:8745` en tu navegador.
@@ -23,7 +23,7 @@ Abre `http://localhost:8745` en tu navegador.
 ## Crear ejecutable (.exe)
 
 ```cmd
-.venv\Scripts\python web-app\build\build.py
+.venv\Scripts\python build\build.py
 ```
 
 El ejecutable se genera en `dist\SplitTracks-win32\`
@@ -31,7 +31,7 @@ El ejecutable se genera en `dist\SplitTracks-win32\`
 ## Crear ejecutable + ZIP portable
 
 ```cmd
-web-app\build\build-windows.bat
+build\build-windows.bat
 ```
 
 El ZIP se genera en `dist\SplitTracks-windows\SplitTracks-windows.zip`

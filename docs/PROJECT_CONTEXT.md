@@ -4,8 +4,8 @@
 
 Split Tracks es una aplicación de escritorio para separación de audio en stems. Tiene dos versiones:
 
-- **GTK4 para Ubuntu/Linux** (rama `main`): aplicación nativa con interfaz GTK4, mixer GStreamer y transposición en vivo.
-- **Web multiplataforma** (rama `feature/cross-platform`): servidor FastAPI + frontend HTML/CSS/JS, mixer Web Audio API, compatible con macOS/Windows/Linux.
+- **Web multiplataforma** (rama `main`): servidor FastAPI + frontend HTML/CSS/JS, mixer Web Audio API, compatible con macOS/Windows/Linux.
+- **GTK4 para Ubuntu/Linux** (archivada): aplicación nativa con interfaz GTK4, mixer GStreamer y transposición en vivo. Reemplazada por la versión web en `main`.
 
 Es de uso personal: no hay cuentas, premium, paywall, ventas, biblioteca gestionada ni sincronización web.
 
@@ -92,16 +92,16 @@ Tema dark/solarized con paneles GTK. Los iconos de instrumento están en `assets
 
 La rama de trabajo histórica es `feature/human-chord-sources`. Tras este trabajo se fusiona localmente en `master` según la petición del usuario; no hagas push automáticamente.
 
-## Versión web multiplataforma (`feature/cross-platform`)
+## Versión web multiplataforma (`main`)
 
 La versión web comparte el motor (`engine.py`, `harmony.py`, `analysis.py`) con la versión GTK pero reemplaza la UI con un frontend HTML/CSS/JS y el sistema de audio GStreamer por Web Audio API.
 
 ### Arquitectura
 
-- **`web-app/server.py`**: servidor FastAPI que expone los endpoints REST. Las operaciones bloqueantes (descarga, análisis, separación) se ejecutan en threads daemon para no bloquear el event loop. Los trabajos son asíncronos: el POST `/api/jobs` devuelve el ID al instante y el cliente sondea el progreso.
-- **`web-app/static/index.html`**: layout de dos paneles: sidebar (acordes, métricas, pitch) + workspace (progreso, acordes, mixer).
-- **`web-app/static/js/player.js`**: mixer multitrack con Web Audio API. Cada stem se carga como AudioBuffer y se reproduce sincronizado mediante BufferSource nodes con ganancia individual.
-- **`web-app/static/js/app.js`**: lógica de UI completa: chips de stems, búsqueda de acordes, selección de versiones, transposición, métricas, mixer, exportación.
+- **`server.py`**: servidor FastAPI que expone los endpoints REST. Las operaciones bloqueantes (descarga, análisis, separación) se ejecutan en threads daemon para no bloquear el event loop. Los trabajos son asíncronos: el POST `/api/jobs` devuelve el ID al instante y el cliente sondea el progreso.
+- **`static/index.html`**: layout de dos paneles: sidebar (acordes, métricas, pitch) + workspace (progreso, acordes, mixer).
+- **`static/js/player.js`**: mixer multitrack con Web Audio API. Cada stem se carga como AudioBuffer y se reproduce sincronizado mediante BufferSource nodes con ganancia individual.
+- **`static/js/app.js`**: lógica de UI completa: chips de stems, búsqueda de acordes, selección de versiones, transposición, métricas, mixer, exportación.
 
 ### Endpoints principales
 

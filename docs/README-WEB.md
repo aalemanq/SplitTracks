@@ -6,10 +6,10 @@ Versión multiplataforma (macOS / Windows / Linux) con interfaz web.
 
 ```bash
 # Linux / macOS
-./web-app/run.sh
+./run.sh
 
 # Windows
-web-app\run.bat
+run.bat
 ```
 
 Abre `http://localhost:8745` en el navegador.
@@ -38,24 +38,24 @@ Abre `http://localhost:8745` en el navegador.
 
 ### macOS (.app + DMG)
 ```bash
-./web-app/build/build-macos.sh
+./build/build-macos.sh
 ```
 Requiere: `brew install create-dmg`
 
 ### Windows (.exe + ZIP)
 ```cmd
-web-app\build\build-windows.bat
+build\build-windows.bat
 ```
 
 ### Genérico (PyInstaller)
 ```bash
-.venv/bin/python web-app/build/build.py
+.venv/bin/python build/build.py
 ```
 
 ## Estructura
 
 ```
-web-app/
+static/
 ├── server.py              # FastAPI backend (290 líneas)
 ├── launcher.py            # Desktop launcher (abre navegador)
 ├── run.sh / run.bat       # Scripts de arranque
