@@ -6,6 +6,7 @@ class Player {
     this.masterGain = null; this.playing = false;
     this.duration = 0; this._position = 0; this._lastTime = 0;
     this.pitchSemitones = 0; this.tempoRate = 1.0;
+    this.analysers = []; this.masterAnalyser = null;
   }
 
   async load(stemsData) {
@@ -13,6 +14,7 @@ class Player {
     this.ctx = new (window.AudioContext || window.webkitAudioContext)();
     this.masterGain = this.ctx.createGain(); this.masterGain.connect(this.ctx.destination); this.masterGain.gain.value = 1.0;
     this.shifters = []; this.gains = []; this.duration = 0; this._position = 0; this._lastTime = 0;
+    this.analysers = [];
 
     for (const s of stemsData) {
       try {
@@ -25,12 +27,16 @@ class Player {
         shifter.pitchSemitones = 0;
         shifter.off();
 
-        const gain = this.ctx.createGain(); gain.connect(this.masterGain);
-        gain.gain.value = s.mute ? 0 : (s.volume ?? 1.0);
+        const gain = this.ctx.createGain(); gain.gain.value = s.mute ? 0 : (s.volume ?? 1.0);
+        const analyser = this.ctx.createAnalyser(); analyser.fftSize = 256;
+        gain.connect(analyser); analyser.connect(this.masterGain);
         this.shifters.push(shifter);
         this.gains.push({ name: s.name, node: gain, shifter: shifter });
+        this.analysers.push(analyser);
       } catch (e) { console.warn('Error loading stem:', s.name, e); }
     }
+    this.masterAnalyser = this.ctx.createAnalyser(); this.masterAnalyser.fftSize = 512;
+    this.masterGain.connect(this.masterAnalyser); this.masterAnalyser.connect(this.ctx.destination);
     this._updateGains(); return this.duration;
   }
 

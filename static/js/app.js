@@ -1,7 +1,9 @@
 import { Player } from './player.js';
 import { API } from './api.js';
+import { WaveformDisplay } from './waveform.js';
 
 const player = new Player();
+const waveform = new WaveformDisplay(player);
 let jobId = null, jobData = null, chordData = null, duration = 0, updateTimer = null, _elapsedStart = 0, _elapsedTimer = null;
 
 const STEMS = [
@@ -32,6 +34,7 @@ async function startJob({url,file}={}){
   const form = new FormData(); if(file) form.append('file',file); if(url) form.append('url',url);
   form.append('stems',JSON.stringify([...selectedStems]));
   $('progressPanel').hidden=false; $('studioPanel').hidden=true;
+  $('waveformContainer').hidden=true; $('spectrumCanvas').hidden=true; waveform.stop();
   $('progressTitle').textContent='Enviando...'; $('progressPct').textContent='0%'; $('progressPhase').textContent='';
   $('cancelBtn').hidden=false; $('processBtn').disabled=true;
   _elapsedStart=Date.now(); _startElapsed();
@@ -100,6 +103,7 @@ async function buildStudio(job){
   for(const s of job.stems){ s.path=API.stemUrl(job.id,s.file); s.volume=1;s.mute=false;s.solo=false; }
   duration=await player.load(job.stems);
   $('timeline').max=duration;$('totalTime').textContent=fmtTime(duration);$('currentTime').textContent='0:00';
+  $('waveformContainer').hidden=false; $('spectrumCanvas').hidden=false; waveform.init();
 }
 
 // ── Analysis metrics ── Fix 6+7: only 6 metrics, unique chord count

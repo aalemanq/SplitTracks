@@ -150,3 +150,7 @@ body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',system-ui,sans-seri
 .transport-bar .timeline::-webkit-slider-runnable-track{height:5px;background:var(--surface-raised);border-radius:3px}
 .transport-bar .timeline::-webkit-slider-thumb{-webkit-appearance:none;width:14px;height:14px;border-radius:50%;background:var(--cyan);border:2px solid var(--canvas);margin-top:-5px}
 .transport-exports{display:flex;align-items:center;gap:8px;flex-shrink:0}
+
+.waveform-container{display:flex;flex-direction:column;gap:2px;padding:4px 16px;background:var(--canvas);border:1px solid var(--line);border-radius:var(--radius)}
+.waveform-canvas{width:100%;height:36px;display:block;border-radius:4px;background:var(--surface)}
+.spectrum-canvas{width:100%;height:60px;display:block;margin:4px 0;border-radius:var(--radius);background:var(--surface)}
