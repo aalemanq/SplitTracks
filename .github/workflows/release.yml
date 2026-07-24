@@ -100,12 +100,12 @@ jobs:
       - name: Install system deps
         run: |
           curl -sSLo ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
-          7z x ffmpeg.zip -obin\ffmpeg-tmp
-          move bin\ffmpeg-tmp\ffmpeg-*\bin\ffmpeg.exe bin\ffmpeg.exe
-          move bin\ffmpeg-tmp\ffmpeg-*\bin\ffprobe.exe bin\ffprobe.exe
-          rmdir /s /q bin\ffmpeg-tmp
-          del ffmpeg.zip
-        shell: cmd
+          Expand-Archive ffmpeg.zip -DestinationPath bin\ffmpeg-tmp -Force
+          $d = Get-ChildItem bin\ffmpeg-tmp -Directory | Select-Object -First 1
+          Copy-Item "$($d.FullName)\bin\ffmpeg.exe" bin\ffmpeg.exe
+          Copy-Item "$($d.FullName)\bin\ffprobe.exe" bin\ffprobe.exe
+          Remove-Item -Recurse -Force bin\ffmpeg-tmp, ffmpeg.zip
+        shell: pwsh
 
       - name: Download yt-dlp
         run: |
