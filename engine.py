@@ -572,7 +572,7 @@ class SeparationEngine:
 
         for base_dir in candidates:
             venv_bin = Path(".venv") / ("Scripts" if IS_WINDOWS else "bin")
-            names = ["python.bat", "python.orig.exe"] if IS_WINDOWS else ["python"]
+            names = ["python.bat", "python.exe", "python.orig.exe"] if IS_WINDOWS else ["python", "python.orig"]
             for name in names:
                 bundled = base_dir / venv_bin / name
                 _log.info("ML check: trying %s", bundled)
