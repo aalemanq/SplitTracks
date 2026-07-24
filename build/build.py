@@ -5,13 +5,11 @@ import os, shutil, subprocess, sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-WEB_APP = ROOT
-STATIC = ROOT / "static"
 DIST = ROOT / "dist"
 NAME = "SplitTracks"
 
 def run(cmd):
-    print(f"  {''.join(cmd)}")
+    print(f"  {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
 
 def main():
@@ -20,18 +18,18 @@ def main():
     DIST.mkdir(exist_ok=True)
 
     sep = ";" if platform == "win32" else ":"
-    add_data = f"static{sep}static"
+    add_data_args = [f"--add-data={ROOT / 'static'}{sep}static"]
     if (ROOT / "assets").exists():
-        add_data += f"{sep}assets{sep}assets"
+        add_data_args.append(f"--add-data={ROOT / 'assets'}{sep}assets")
 
     cmd = [
         sys.executable, "-m", "PyInstaller",
         "--onedir", "--windowed", "--name", NAME,
-        f"--add-data={add_data}",
+        *add_data_args,
         "--distpath", str(DIST),
         "--workpath", str(DIST / "build"),
         "--specpath", str(DIST), "--clean", "--noconfirm",
-        str(WEB_APP / "launcher.py"),
+        str(ROOT / "launcher.py"),
     ]
 
     run(cmd)
@@ -42,8 +40,12 @@ def main():
     bundle.mkdir()
 
     exe_dir = DIST / NAME
-    exe_name = f"{NAME}{'.exe' if platform == 'win32' else ''}"
-    shutil.move(str(exe_dir / exe_name), str(bundle / exe_name))
+    for item in exe_dir.iterdir():
+        dest = bundle / item.name
+        if item.is_file() and item.name == NAME and platform != "win32":
+            dest = bundle / f"{NAME}.bin"
+        shutil.move(str(item), str(dest))
+    shutil.rmtree(exe_dir, ignore_errors=True)
 
     # Copy bin tools
     bin_dest = bundle / "bin"
@@ -64,7 +66,7 @@ def main():
     if platform == "win32":
         (bundle / "SplitTracks.vbs").write_text('CreateObject("Wscript.Shell").Run "SplitTracks.exe", 0, False\r\n')
     else:
-        (bundle / "SplitTracks").write_text("#!/bin/bash\ncd \"$(dirname \"$0\")\"\n./SplitTracks\n")
+        (bundle / "SplitTracks").write_text(f"#!/bin/bash\ncd \"$(dirname \"$0\")\"\n./{NAME}.bin\n")
         (bundle / "SplitTracks").chmod(0o755)
 
     print(f"\nBundle ready: {bundle}")
