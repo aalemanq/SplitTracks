@@ -21,22 +21,7 @@ def _strip_venv(venv_dir: Path) -> None:
     if not sp_root:
         return
 
-    patterns = ["tests", "test", "testing", "benchmarks", "docs"]
     removed = 0
-    for pattern in patterns:
-        for d in sp_root.rglob(pattern):
-            if d.is_dir():
-                shutil.rmtree(d, ignore_errors=True)
-                removed += 1
-
-    for extra in sp_root.glob("torchgen*"):
-        if extra.is_dir():
-            shutil.rmtree(extra, ignore_errors=True)
-            removed += 1
-        elif extra.is_file():
-            extra.unlink(missing_ok=True)
-            removed += 1
-
     extensions = (".pyx", ".pxd", ".h", ".hpp", ".c", ".cpp", ".cxx", ".cc")
     for ext in extensions:
         for f in sp_root.rglob(f"*{ext}"):
@@ -47,7 +32,7 @@ def _strip_venv(venv_dir: Path) -> None:
         if pth_file.name not in ("distutils-precedence.pth",):
             pth_file.unlink(missing_ok=True)
 
-    print(f"  Stripped {removed} non-essential items from .venv")
+    print(f"  Stripped {removed} non-essential files from .venv")
 
 def main():
     platform = sys.platform
