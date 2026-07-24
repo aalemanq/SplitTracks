@@ -118,6 +118,7 @@ def _process_job(job_id, audio_path, url, artist, title, selected, cancel, job_d
         result = engine.separate(audio_path, job_dir, tuple(selected), progress=_progress(job_id, 0.5, 0.95, "Demucs"), cancel_event=cancel)
 
         stems_data = [{"name": s.name, "file": str(s.path.relative_to(job_dir)), "color": s.color, "kind": s.kind} for s in result.stems]
+        analysis_dict = _analysis_to_dict(analysis, info)
 
         chart_info = {}
         if artist and title:
@@ -130,7 +131,6 @@ def _process_job(job_id, audio_path, url, artist, title, selected, cancel, job_d
             except Exception as e:
                 _log.warning("Chord fetch failed: %s", e)
 
-        analysis_dict = _analysis_to_dict(analysis, info)
         _update(job_id, "done", 1.0, "Listo", stems=stems_data, **analysis_dict, chart=chart_info, artist=artist, title=title)
 
     except SeparationCancelled:
