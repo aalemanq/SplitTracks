@@ -285,8 +285,10 @@ class SeparationEngine:
                 "No encuentro yt-dlp. Coloca el binario en bin/yt-dlp o instala yt-dlp con Ubuntu."
             )
         temporary_dir = Path(tempfile.mkdtemp(prefix="stemforge-youtube-"))
+        ffmpeg_dir = str(ytdlp.parent)
         command = [
             str(ytdlp),
+            "--ffmpeg-location", ffmpeg_dir,
             "--no-playlist",
             "--no-part",
             "--restrict-filenames",
