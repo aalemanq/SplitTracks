@@ -95,7 +95,36 @@ def main():
         (bundle / "SplitTracks").write_text(f"#!/bin/bash\ncd \"$(dirname \"$0\")\"\n./{NAME}.bin\n")
         (bundle / "SplitTracks").chmod(0o755)
 
+    # Fix venv portability: set PYTHONHOME to bundled stdlib
+    _make_venv_portable(bundle)
+
     print(f"\nBundle ready: {bundle}")
+
+
+def _make_venv_portable(bundle: Path) -> None:
+    venv_python = bundle / ".venv" / "bin" / "python"
+    if not venv_python.exists():
+        return
+    stdlib_src = Path(sys.base_prefix) / "lib" / f"python{sys.version_info.major}.{sys.version_info.minor}"
+    stdlib_dst = bundle / "_internal" / "python3.12" / "lib" / "python3.12"
+    if not (stdlib_dst / "encodings").exists() and stdlib_src.exists():
+        shutil.copytree(stdlib_src, stdlib_dst, symlinks=True,
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "test", "tests",
+                                                      "idlelib", "tkinter", "turtledemo",
+                                                      "distutils", "ensurepip", "venv"))
+    venv_python_orig = venv_python.parent / "python.orig"
+    if not venv_python_orig.exists():
+        shutil.move(str(venv_python), str(venv_python_orig))
+    venv_python.write_text(
+        '#!/bin/bash\n'
+        'HERE="$(cd "$(dirname "$0")" && pwd)"\n'
+        'BUNDLE="$(cd "$HERE/../.." && pwd)"\n'
+        'export PYTHONHOME="$BUNDLE/_internal/python3.12"\n'
+        'export PYTHONPATH="$BUNDLE/.venv/lib/python3.12/site-packages"\n'
+        'exec "$HERE/python.orig" "$@"\n'
+    )
+    venv_python.chmod(0o755)
+    print("  Made .venv portable")
 
 if __name__ == "__main__":
     main()
