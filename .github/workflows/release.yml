@@ -98,7 +98,14 @@ jobs:
           python-version: "3.12"
 
       - name: Install system deps
-        run: choco install ffmpeg -y
+        run: |
+          curl -sSLo ffmpeg.zip https://www.gyan.dev/ffmpeg/builds/ffmpeg-release-essentials.zip
+          7z x ffmpeg.zip -obin\ffmpeg-tmp
+          move bin\ffmpeg-tmp\ffmpeg-*\bin\ffmpeg.exe bin\ffmpeg.exe
+          move bin\ffmpeg-tmp\ffmpeg-*\bin\ffprobe.exe bin\ffprobe.exe
+          rmdir /s /q bin\ffmpeg-tmp
+          del ffmpeg.zip
+        shell: cmd
 
       - name: Download yt-dlp
         run: |
@@ -114,10 +121,7 @@ jobs:
         shell: cmd
 
       - name: Build
-        run: |
-          copy C:\ProgramData\chocolatey\bin\ffmpeg.exe bin\ffmpeg.exe
-          copy C:\ProgramData\chocolatey\bin\ffprobe.exe bin\ffprobe.exe
-          .venv\Scripts\python build\build.py
+        run: .venv\Scripts\python build\build.py
         shell: cmd
 
       - name: Zip bundle
