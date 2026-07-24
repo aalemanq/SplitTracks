@@ -7,6 +7,7 @@ class Player {
     this.duration = 0; this._position = 0; this._lastTime = 0;
     this.pitchSemitones = 0; this.tempoRate = 1.0;
     this.analysers = []; this.masterAnalyser = null;
+    this.buffers = [];
   }
 
   async load(stemsData) {
@@ -33,6 +34,7 @@ class Player {
         this.shifters.push(shifter);
         this.gains.push({ name: s.name, node: gain, shifter: shifter });
         this.analysers.push(analyser);
+        this.buffers.push(audioBuf);
       } catch (e) { console.warn('Error loading stem:', s.name, e); }
     }
     this.masterAnalyser = this.ctx.createAnalyser(); this.masterAnalyser.fftSize = 512;
