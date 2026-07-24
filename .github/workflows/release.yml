@@ -125,7 +125,7 @@ jobs:
           path: dist/SplitTracks-windows/SplitTracks-windows.zip
 
   release:
-    needs: [build-linux]
+    needs: [build-linux, build-windows]
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -140,6 +140,7 @@ jobs:
           name: Split Tracks ${{ github.ref_name }}
           files: |
             artifacts/SplitTracks-linux-x86_64/SplitTracks-linux-x86_64.tar.gz
+            artifacts/SplitTracks-windows/SplitTracks-windows.zip
           draft: false
           prerelease: false
           generate_release_notes: true
