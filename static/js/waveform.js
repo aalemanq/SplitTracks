@@ -11,8 +11,57 @@ class WaveformDisplay {
   init() {
     this.spectrumCanvas = document.getElementById('spectrumCanvas');
     if (this.spectrumCanvas) this.spectrumCanvas.hidden = false;
+    this._renderPeaks();
     this._findVuCanvases();
     this.start();
+  }
+
+  _renderPeaks() {
+    const canvases = document.querySelectorAll('.track-peaks');
+    if (!canvases.length || !this.player.buffers.length) return;
+
+    let globalMax = 0;
+    for (const buf of this.player.buffers) {
+      const data = buf.getChannelData(0);
+      for (let i = 0; i < data.length; i++) {
+        const abs = Math.abs(data[i]);
+        if (abs > globalMax) globalMax = abs;
+      }
+    }
+    if (globalMax === 0) globalMax = 1;
+
+    for (let t = 0; t < canvases.length; t++) {
+      const canvas = canvases[t];
+      const buf = this.player.buffers[t];
+      if (!buf) continue;
+
+      const w = canvas.width = canvas.clientWidth || 300;
+      const h = canvas.height = 30;
+      const ctx = canvas.getContext('2d');
+      const data = buf.getChannelData(0);
+      const step = Math.max(1, Math.floor(data.length / w));
+      const mid = h / 2;
+
+      ctx.clearRect(0, 0, w, h);
+      ctx.strokeStyle = '#1a5662'; ctx.lineWidth = 0.5;
+      ctx.beginPath(); ctx.moveTo(0, mid); ctx.lineTo(w, mid); ctx.stroke();
+
+      ctx.fillStyle = this.colors[t % this.colors.length];
+      for (let x = 0; x < w; x++) {
+        let min = 0, max = 0;
+        const start = x * step;
+        const end = Math.min(start + step, data.length);
+        for (let i = start; i < end; i++) {
+          const v = data[i];
+          if (v < min) min = v;
+          if (v > max) max = v;
+        }
+        min /= globalMax; max /= globalMax;
+        const y1 = mid - max * mid * 0.92;
+        const y2 = mid - min * mid * 0.92;
+        ctx.fillRect(x, y1, 1, Math.max(1, y2 - y1));
+      }
+    }
   }
 
   _findVuCanvases() {

@@ -178,6 +178,9 @@ function buildMixer(job){
     const wf=document.createElement('canvas'); wf.className='track-wave'; wf.width=200; wf.height=30;
     row.appendChild(wf);
 
+    const peaks=document.createElement('canvas'); peaks.className='track-peaks'; peaks.width=300; peaks.height=30;
+    row.appendChild(peaks);
+
     const volWrap=document.createElement('div'); volWrap.className='track-volume';
     const volSlider=document.createElement('input'); volSlider.type='range'; volSlider.min='0'; volSlider.max='125'; volSlider.value='100';
     const volVal=document.createElement('span'); volVal.className='track-vol-val'; volVal.textContent='100%';
