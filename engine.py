@@ -558,21 +558,41 @@ class SeparationEngine:
 
     @staticmethod
     def _find_separator_python() -> Path | None:
-        base = Path(sys.executable).parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent
-        bundled = base / ".venv" / ("Scripts" if IS_WINDOWS else "bin") / f"python{'.exe' if IS_WINDOWS else ''}"
-        if bundled.is_file():
-            try:
-                check = subprocess.run(
-                    [str(bundled), "-c", "import demucs"],
-                    check=False,
-                    capture_output=True,
-                    text=True,
-                    creationflags=_NO_WINDOW,
-                )
-            except OSError:
-                check = None
-            if check is not None and check.returncode == 0:
-                return bundled
+        import logging
+        _log = logging.getLogger("split-tracks")
+        frozen = getattr(sys, "frozen", False)
+        base = Path(sys.executable).parent if frozen else Path(__file__).resolve().parent
+
+        # También buscar en sys._MEIPASS para one-file, o en el directorio de _internal
+        candidates = [base]
+        if frozen:
+            meipass = getattr(sys, "_MEIPASS", "")
+            if meipass:
+                candidates.insert(0, Path(meipass))
+            # Si el ejecutable está en un subdirectorio, probar el padre
+            candidates.append(base.parent)
+
+        for base_dir in candidates:
+            bundled = base_dir / ".venv" / ("Scripts" if IS_WINDOWS else "bin") / f"python{'.exe' if IS_WINDOWS else ''}"
+            _log.info("ML check: trying %s", bundled)
+            if bundled.is_file():
+                try:
+                    check = subprocess.run(
+                        [str(bundled), "-c", "import demucs"],
+                        check=False,
+                        capture_output=True,
+                        text=True,
+                        creationflags=_NO_WINDOW,
+                    )
+                except OSError:
+                    check = None
+                if check is not None and check.returncode == 0:
+                    _log.info("ML found: %s", bundled)
+                    return bundled
+                _log.warning("ML check failed at %s: rc=%s stderr=%s",
+                             bundled,
+                             check.returncode if check else "OSError",
+                             (check.stderr.strip() if check and check.stderr else ""))
         executable = shutil.which("python3") or sys.executable
         try:
             check = subprocess.run(
