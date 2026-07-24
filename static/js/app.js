@@ -293,4 +293,6 @@ $('exportStemsBtn').onclick=async()=>{ if(!jobId) return;
 function saveState(){ try{localStorage.setItem('splittracks_mixer',JSON.stringify(jobData?.stems?.map(s=>({name:s.name,volume:s.volume,mute:s.mute,solo:s.solo}))))}catch(e){} }
 function loadState(){ try{const d=JSON.parse(localStorage.getItem('splittracks_mixer'));if(d&&jobData) d.forEach(s=>{const stem=jobData.stems.find(ss=>ss.name===s.name);if(stem){stem.volume=s.volume??1;stem.mute=s.mute??false;stem.solo=s.solo??false;}});}catch(e){} }
 
+$('exitBtn').onclick = () => fetch('/api/shutdown', {method:'POST'});
+
 buildChips();

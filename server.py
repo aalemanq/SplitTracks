@@ -346,6 +346,16 @@ def _analysis_to_dict(analysis: AudioAnalysis | None, info) -> dict:
 def index():
     return FileResponse(STATIC_DIR / "index.html")
 
+
+@app.post("/api/shutdown")
+def shutdown():
+    """Stop the server cleanly. Useful from the UI close button."""
+    import os as _os
+    _log.info("Shutdown requested via API")
+    _os._exit(0)
+    return {"status": "shutting_down"}
+
+
 app.mount("/static", StaticFiles(directory=STATIC_DIR), name="static")
 
 if __name__ == "__main__":
