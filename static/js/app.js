@@ -158,28 +158,14 @@ function buildMixer(job){
     const stemInfo = STEMS.find(st=>st.name===displayName) || {key:'other'};
     const row=document.createElement('div'); row.className='track-row';
 
-    const chip=document.createElement('div');
-    chip.className=`chip active ${stemInfo.key}`; chip.textContent=displayName;
-
     const vu=document.createElement('div'); vu.className='vu-meter';
     const vuCanvas=document.createElement('canvas'); vuCanvas.width=40; vuCanvas.height=8;
     vu.appendChild(vuCanvas); row.appendChild(vu);
 
+    const chip=document.createElement('div');
+    chip.className=`chip active ${stemInfo.key}`; chip.textContent=displayName;
+    chip.style.minWidth='100px';
     row.appendChild(chip);
-
-    const btns=document.createElement('div'); btns.className='track-btns';
-    const muteBtn=document.createElement('button'); muteBtn.textContent='M'; muteBtn.className='muted';
-    muteBtn.onclick=()=>{ s.mute=!s.mute; muteBtn.classList.toggle('active',s.mute); player.setMute(i,s.mute); saveState(); };
-    btns.appendChild(muteBtn);
-    const soloBtn=document.createElement('button'); soloBtn.textContent='S'; soloBtn.className='soloed';
-    soloBtn.onclick=()=>{ s.solo=!s.solo; soloBtn.classList.toggle('active',s.solo); player.setSolo(i,s.solo); saveState(); };
-    btns.appendChild(soloBtn); row.appendChild(btns);
-
-    const wf=document.createElement('canvas'); wf.className='track-wave'; wf.width=200; wf.height=30;
-    row.appendChild(wf);
-
-    const peaks=document.createElement('canvas'); peaks.className='track-peaks'; peaks.width=300; peaks.height=30;
-    row.appendChild(peaks);
 
     const volWrap=document.createElement('div'); volWrap.className='track-volume';
     const volSlider=document.createElement('input'); volSlider.type='range'; volSlider.min='0'; volSlider.max='125'; volSlider.value='100';
@@ -187,9 +173,22 @@ function buildMixer(job){
     volSlider.oninput=()=>{ const v=parseInt(volSlider.value)/100; player.setVolume(i,v); volVal.textContent=Math.round(v*100)+'%'; saveState(); };
     volWrap.appendChild(volSlider); row.appendChild(volWrap); row.appendChild(volVal);
 
-    const expBtn=document.createElement('button'); expBtn.className='track-export'; expBtn.textContent='MP3';
+    const muteBtn=document.createElement('button'); muteBtn.textContent='M'; muteBtn.className='track-toggle muted';
+    muteBtn.onclick=()=>{ s.mute=!s.mute; muteBtn.classList.toggle('active',s.mute); player.setMute(i,s.mute); saveState(); };
+    row.appendChild(muteBtn);
+    const soloBtn=document.createElement('button'); soloBtn.textContent='S'; soloBtn.className='track-toggle soloed';
+    soloBtn.onclick=()=>{ s.solo=!s.solo; soloBtn.classList.toggle('active',s.solo); player.setSolo(i,s.solo); saveState(); };
+    row.appendChild(soloBtn);
+
+    const expBtn=document.createElement('button'); expBtn.className='track-export'; expBtn.textContent='⬇';
     expBtn.onclick=()=>{ window.open(API.stemMp3Url(job.id,s.file),'_blank'); };
-    row.appendChild(expBtn); mixer.appendChild(row);
+    row.appendChild(expBtn);
+
+    const wf=document.createElement('canvas'); wf.className='track-wave'; wf.width=180; wf.height=28;
+    row.appendChild(wf);
+
+    const peaks=document.createElement('canvas'); peaks.className='track-peaks'; peaks.width=300; peaks.height=28;
+    row.appendChild(peaks);
   });
 }
 
