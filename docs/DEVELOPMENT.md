@@ -36,7 +36,7 @@ Los tests no deben depender de una consulta de red real. Para probar scraping, u
 
 ## Flujo Git
 
-- Trabaja en una rama descriptiva desde `master`.
+- Trabaja en una rama descriptiva desde `main`.
 - Revisa `git status` antes de editar y conserva cambios ajenos.
 - Commits pequeños, con mensaje claro y sin incluir `.venv`, cachés, audio ni secretos.
 - No hagas push ni abras PR sin petición explícita.
@@ -82,8 +82,11 @@ curl -s "http://127.0.0.1:8745/api/chords/search?artist=Adele&title=Someone%20Li
 ### Builds
 
 ```bash
-# Genérico
+# Genérico (cualquier SO)
 .venv/bin/python build/build.py
+
+# Linux (tar.gz portable)
+./build/build-linux.sh
 
 # macOS (.app + DMG)
 ./build/build-macos.sh

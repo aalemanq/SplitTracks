@@ -1,0 +1,127 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+jobs:
+  build-linux:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+
+      - name: Install ML deps
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --no-cache-dir \
+            --index-url https://download.pytorch.org/whl/cpu \
+            torch==2.11.0+cpu torchaudio==2.11.0+cpu
+          .venv/bin/pip install --no-cache-dir \
+            demucs==4.1.0 "numpy>=2,<3" "scipy>=1.13,<2" \
+            "requests>=2.31,<3" "beautifulsoup4>=4.12,<5" \
+            -r requirements-web.txt pyinstaller
+
+      - name: Build
+        run: ./build/build-linux.sh
+        env:
+          SPLITTRACKS_VERSION: ${{ github.ref_name }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SplitTracks-linux-x86_64
+          path: dist/SplitTracks-linux-x86_64.tar.gz
+
+  build-macos:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system deps
+        run: brew install ffmpeg
+
+      - name: Install ML deps
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --no-cache-dir \
+            --index-url https://download.pytorch.org/whl/cpu \
+            torch==2.11.0+cpu torchaudio==2.11.0+cpu
+          .venv/bin/pip install --no-cache-dir \
+            demucs==4.1.0 "numpy>=2,<3" "scipy>=1.13,<2" \
+            "requests>=2.31,<3" "beautifulsoup4>=4.12,<5" \
+            -r requirements-web.txt pyinstaller
+
+      - name: Build
+        run: ./build/build-macos.sh
+        env:
+          SPLITTRACKS_VERSION: ${{ github.ref_name }}
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SplitTracks-macOS
+          path: dist/SplitTracks-macos/SplitTracks-macOS.dmg
+
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install system deps
+        run: choco install ffmpeg -y
+
+      - name: Install ML deps
+        run: |
+          python -m venv .venv
+          .venv\Scripts\pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.11.0+cpu torchaudio==2.11.0+cpu
+          .venv\Scripts\pip install --no-cache-dir demucs==4.1.0 "numpy>=2,<3" "scipy>=1.13,<2" "requests>=2.31,<3" "beautifulsoup4>=4.12,<5" -r requirements-web.txt pyinstaller
+        shell: cmd
+
+      - name: Build
+        run: build\build-windows.bat
+        env:
+          SPLITTRACKS_VERSION: ${{ github.ref_name }}
+        shell: cmd
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SplitTracks-windows
+          path: dist/SplitTracks-windows/SplitTracks-windows.zip
+
+  release:
+    needs: [build-linux, build-macos, build-windows]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          name: Split Tracks ${{ github.ref_name }}
+          files: |
+            artifacts/SplitTracks-linux-x86_64/SplitTracks-linux-x86_64.tar.gz
+            artifacts/SplitTracks-macOS/SplitTracks-macOS.dmg
+            artifacts/SplitTracks-windows/SplitTracks-windows.zip
+          draft: false
+          prerelease: false
+          generate_release_notes: true

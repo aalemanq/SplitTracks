@@ -12,6 +12,43 @@ def run(cmd):
     print(f"  {' '.join(cmd)}")
     subprocess.run(cmd, check=True)
 
+
+def _strip_venv(venv_dir: Path) -> None:
+    site_packages = venv_dir / "lib"
+    if not site_packages.exists():
+        return
+    sp_root = next(site_packages.glob("python3.*/site-packages"), None)
+    if not sp_root:
+        return
+
+    patterns = ["tests", "test", "testing", "benchmarks", "docs"]
+    removed = 0
+    for pattern in patterns:
+        for d in sp_root.rglob(pattern):
+            if d.is_dir():
+                shutil.rmtree(d, ignore_errors=True)
+                removed += 1
+
+    for extra in sp_root.glob("torchgen*"):
+        if extra.is_dir():
+            shutil.rmtree(extra, ignore_errors=True)
+            removed += 1
+        elif extra.is_file():
+            extra.unlink(missing_ok=True)
+            removed += 1
+
+    extensions = (".pyx", ".pxd", ".h", ".hpp", ".c", ".cpp", ".cxx", ".cc")
+    for ext in extensions:
+        for f in sp_root.rglob(f"*{ext}"):
+            f.unlink(missing_ok=True)
+            removed += 1
+
+    for pth_file in sp_root.rglob("*.pth"):
+        if pth_file.name not in ("distutils-precedence.pth",):
+            pth_file.unlink(missing_ok=True)
+
+    print(f"  Stripped {removed} non-essential items from .venv")
+
 def main():
     platform = sys.platform
     print(f"Building for {platform}...")
@@ -60,7 +97,9 @@ def main():
     venv_dest = bundle / ".venv"
     venv_src = ROOT / ".venv"
     if venv_src.exists() and not venv_dest.exists():
-        shutil.copytree(venv_src, venv_dest, symlinks=True, ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
+        shutil.copytree(venv_src, venv_dest, symlinks=True,
+                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
+        _strip_venv(venv_dest)
 
     # Launcher
     if platform == "win32":
