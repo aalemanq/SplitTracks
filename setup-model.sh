@@ -6,7 +6,7 @@ VENV_DIR="$PROJECT_DIR/.venv"
 VENV_PYTHON="$VENV_DIR/bin/python"
 
 if [[ ! -x "$VENV_PYTHON" ]]; then
-  python3 -m venv --system-site-packages "$VENV_DIR"
+  python3 -m venv --copies --system-site-packages "$VENV_DIR"
 fi
 
 "$VENV_PYTHON" -m pip install --no-cache-dir \

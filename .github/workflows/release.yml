@@ -28,7 +28,7 @@ jobs:
 
       - name: Install ML deps
         run: |
-          python -m venv .venv
+          python -m venv --copies .venv
           .venv/bin/pip install --no-cache-dir \
             --index-url https://download.pytorch.org/whl/cpu \
             torch==2.11.0+cpu torchaudio==2.11.0+cpu
@@ -49,7 +49,7 @@ jobs:
 
   build-macos:
     runs-on: macos-latest
-    continue-on-error: true  # macOS build experimental, no bloquea release
+    continue-on-error: true
     steps:
       - uses: actions/checkout@v4
 
@@ -68,7 +68,7 @@ jobs:
 
       - name: Install ML deps
         run: |
-          python -m venv .venv
+          python -m venv --copies .venv
           .venv/bin/pip install --no-cache-dir \
             --index-url https://download.pytorch.org/whl/cpu \
             torch==2.11.0+cpu torchaudio==2.11.0+cpu
@@ -107,7 +107,7 @@ jobs:
 
       - name: Install ML deps
         run: |
-          python -m venv .venv
+          python -m venv --copies .venv
           .venv\Scripts\pip install --no-cache-dir --index-url https://download.pytorch.org/whl/cpu torch==2.11.0+cpu torchaudio==2.11.0+cpu
           .venv\Scripts\pip install --no-cache-dir demucs==4.1.0 "numpy>=2,<3" "scipy>=1.13,<2" "requests>=2.31,<3" "beautifulsoup4>=4.12,<5" -r requirements-web.txt pyinstaller
         shell: cmd
