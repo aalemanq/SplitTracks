@@ -180,7 +180,7 @@ function buildMixer(job){
     soloBtn.onclick=()=>{ s.solo=!s.solo; soloBtn.classList.toggle('active',s.solo); player.setSolo(i,s.solo); saveState(); };
     row.appendChild(soloBtn);
 
-    const expBtn=document.createElement('button'); expBtn.className='track-export'; expBtn.textContent='⬇';
+    const expBtn=document.createElement('button'); expBtn.className='track-export'; expBtn.textContent='⏬';
     expBtn.onclick=()=>{ window.open(API.stemMp3Url(job.id,s.file),'_blank'); };
     row.appendChild(expBtn);
 
