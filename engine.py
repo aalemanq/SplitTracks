@@ -574,11 +574,14 @@ class SeparationEngine:
 
         for base_dir in candidates:
             venv_bin = Path(".venv") / ("Scripts" if IS_WINDOWS else "bin")
-            names = ["python.bat", "python.exe", "python.orig.exe"] if IS_WINDOWS else ["python", "python.orig"]
+            bin_dir = Path("bin")
+            names = ["python.bat", "python.exe"] if IS_WINDOWS else ["python"]
             for name in names:
-                bundled = base_dir / venv_bin / name
-                _log.info("ML check: trying %s", bundled)
-                if bundled.is_file():
+                for sub in (venv_bin, bin_dir):
+                    bundled = base_dir / sub / name
+                    if not bundled.is_file():
+                        continue
+                    _log.info("ML check: trying %s", bundled)
                     try:
                         if str(bundled).endswith(".bat"):
                             cmd = ["cmd", "/c", str(bundled), "-c", "import demucs"]

@@ -13,14 +13,7 @@ def run(cmd):
     subprocess.run(cmd, check=True)
 
 
-def _strip_venv(venv_dir: Path) -> None:
-    site_packages = venv_dir / "lib"
-    if not site_packages.exists():
-        return
-    sp_root = next(site_packages.glob("python3.*/site-packages"), None)
-    if not sp_root:
-        return
-
+def _strip_venv_dir(sp_root: Path) -> None:
     removed = 0
     extensions = (".pyx", ".pxd", ".h", ".hpp", ".c", ".cpp", ".cxx", ".cc")
     for ext in extensions:
@@ -32,7 +25,7 @@ def _strip_venv(venv_dir: Path) -> None:
         if pth_file.name not in ("distutils-precedence.pth",):
             pth_file.unlink(missing_ok=True)
 
-    print(f"  Stripped {removed} non-essential files from .venv")
+    print(f"  Stripped {removed} non-essential files")
 
 def main():
     platform = sys.platform
@@ -80,13 +73,7 @@ def main():
             if item.is_file():
                 shutil.copy2(item, bin_dest / item.name)
 
-    # Copy .venv if exists (for demucs)
-    venv_dest = bundle / ".venv"
-    venv_src = ROOT / ".venv"
-    if venv_src.exists() and not venv_dest.exists():
-        shutil.copytree(venv_src, venv_dest, symlinks=True,
-                        ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "*.pyo"))
-        _strip_venv(venv_dest)
+    # Copy .venv site-packages directly to _internal (handled by _make_venv_portable)
 
     # Launcher
     if platform == "win32":
@@ -103,47 +90,59 @@ def main():
 
 def _make_venv_portable(bundle: Path, platform: str) -> None:
     is_win = platform == "win32"
-    venv_bin = "Scripts" if is_win else "bin"
-    venv_python = bundle / ".venv" / venv_bin / ("python.exe" if is_win else "python")
-    if not venv_python.exists():
-        return
-
+    internal_py = bundle / "_internal" / "python3.12"
     py_ver = f"python{sys.version_info.major}.{sys.version_info.minor}"
     stdlib_src = Path(sys.base_prefix) / ("Lib" if is_win else f"lib/{py_ver}")
-    internal_py = bundle / "_internal" / "python3.12"
     stdlib_dst = internal_py / ("Lib" if is_win else f"lib/{py_ver}")
 
+    site_src = ROOT / ".venv" / "Lib" / "site-packages"
+    site_dst = internal_py / "Lib" / "site-packages"
+    if site_src.exists():
+        if site_dst.exists():
+            shutil.rmtree(site_dst, ignore_errors=True)
+            import time; time.sleep(0.5)
+        shutil.copytree(site_src, site_dst, symlinks=True, dirs_exist_ok=True)
+        _strip_venv_dir(site_dst)
+
     if not (stdlib_dst / "encodings").exists() and stdlib_src.exists():
-        shutil.copytree(stdlib_src, stdlib_dst, symlinks=True,
+        shutil.copytree(stdlib_src, stdlib_dst, symlinks=True, dirs_exist_ok=True,
                         ignore=shutil.ignore_patterns("__pycache__", "*.pyc", "test", "tests",
                                                       "idlelib", "tkinter", "turtledemo",
                                                       "distutils", "ensurepip", "venv"))
     if is_win and not (internal_py / "DLLs").exists():
         dlls_src = Path(sys.base_prefix) / "DLLs"
         if dlls_src.exists():
-            shutil.copytree(dlls_src, internal_py / "DLLs", symlinks=True,
+            shutil.copytree(dlls_src, internal_py / "DLLs", symlinks=True, dirs_exist_ok=True,
                             ignore=shutil.ignore_patterns("__pycache__", "*.pyc"))
-    venv_python_orig = venv_python.parent / ("python.orig.exe" if is_win else "python.orig")
-    if not venv_python_orig.exists():
-        shutil.move(str(venv_python), str(venv_python_orig))
+
+    py_exe = internal_py / ("python.exe" if is_win else "python")
+    if not py_exe.exists():
+        base_python = Path(sys.base_exec_prefix) / ("python.exe" if is_win else "bin/python")
+        if base_python.exists():
+            shutil.copy2(str(base_python), str(py_exe))
+        else:
+            shutil.copy2(sys.executable, str(py_exe))
+    if is_win:
+        py_dll = internal_py / "python312.dll"
+        base_dll = Path(sys.base_prefix) / "python312.dll"
+        if not py_dll.exists() and base_dll.exists():
+            shutil.copy2(str(base_dll), str(py_dll))
 
     if is_win:
-        venv_python.with_suffix(".bat").write_text(
+        bat = bundle / ".venv" / "Scripts" / "python.bat"
+        bat.parent.mkdir(parents=True, exist_ok=True)
+        bat.write_text(
             '@echo off\r\n'
             'set PYTHONHOME=%~dp0..\\..\\_internal\\python3.12\r\n'
-            'set PYTHONPATH=%~dp0..\\Lib\\site-packages\r\n'
-            '"%~dp0python.orig.exe" %*\r\n'
+            '"%~dp0..\\..\\_internal\\python3.12\\python.exe" %*\r\n'
         )
-    else:
-        venv_python.write_text(
-            '#!/bin/bash\n'
-            'HERE="$(cd "$(dirname "$0")" && pwd)"\n'
-            'BUNDLE="$(cd "$HERE/../.." && pwd)"\n'
-            f'export PYTHONHOME="$BUNDLE/_internal/python3.12"\n'
-            f'export PYTHONPATH="$BUNDLE/.venv/lib/python3.12/site-packages"\n'
-            'exec "$HERE/python.orig" "$@"\n'
+        bat = bundle / "bin" / "python.bat"
+        bat.parent.mkdir(parents=True, exist_ok=True)
+        bat.write_text(
+            '@echo off\r\n'
+            'set PYTHONHOME=%~dp0..\\_internal\\python3.12\r\n'
+            '"%~dp0..\\_internal\\python3.12\\python.exe" %*\r\n'
         )
-        venv_python.chmod(0o755)
     print("  Made .venv portable")
 
 if __name__ == "__main__":
