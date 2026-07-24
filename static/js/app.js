@@ -160,6 +160,11 @@ function buildMixer(job){
 
     const chip=document.createElement('div');
     chip.className=`chip active ${stemInfo.key}`; chip.textContent=displayName;
+
+    const vu=document.createElement('div'); vu.className='vu-meter';
+    const vuCanvas=document.createElement('canvas'); vuCanvas.width=40; vuCanvas.height=8;
+    vu.appendChild(vuCanvas); row.appendChild(vu);
+
     row.appendChild(chip);
 
     const btns=document.createElement('div'); btns.className='track-btns';
@@ -172,10 +177,6 @@ function buildMixer(job){
 
     const wf=document.createElement('canvas'); wf.className='track-wave'; wf.width=200; wf.height=30;
     row.appendChild(wf);
-
-    const vu=document.createElement('div'); vu.className='vu-meter';
-    const vuCanvas=document.createElement('canvas'); vuCanvas.width=40; vuCanvas.height=8;
-    vu.appendChild(vuCanvas); row.appendChild(vu);
 
     const volWrap=document.createElement('div'); volWrap.className='track-volume';
     const volSlider=document.createElement('input'); volSlider.type='range'; volSlider.min='0'; volSlider.max='125'; volSlider.value='100';
