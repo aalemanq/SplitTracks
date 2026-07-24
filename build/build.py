@@ -44,9 +44,11 @@ def main():
     if (ROOT / "assets").exists():
         add_data_args.append(f"--add-data={ROOT / 'assets'}{sep}assets")
 
+    platform_args = ["--windowed"] if platform == "win32" else []
     cmd = [
         sys.executable, "-m", "PyInstaller",
-        "--onedir", "--windowed", "--name", NAME,
+        "--onedir", "--name", NAME,
+        *platform_args,
         *add_data_args,
         "--distpath", str(DIST),
         "--workpath", str(DIST / "build"),

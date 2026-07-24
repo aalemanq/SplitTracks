@@ -11,13 +11,15 @@ from pathlib import Path
 import uvicorn
 
 FROZEN = getattr(sys, "frozen", False)
+IS_WINDOWS = sys.platform == "win32"
 
 if FROZEN:
     BASE_DIR = Path(sys.executable).parent
-    if sys.stderr is None:
-        sys.stderr = open(os.devnull, "w")
-    if sys.stdout is None:
-        sys.stdout = open(os.devnull, "w")
+    if IS_WINDOWS:
+        if sys.stderr is None:
+            sys.stderr = open(os.devnull, "w")
+        if sys.stdout is None:
+            sys.stdout = open(os.devnull, "w")
 else:
     BASE_DIR = Path(__file__).resolve().parent
     sys.path.insert(0, str(BASE_DIR))
