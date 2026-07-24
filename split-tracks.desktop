@@ -1,7 +1,8 @@
 [Desktop Entry]
 Name=Split Tracks
 Comment=Separación y mezcla de stems de audio local
-Exec=/home/aaleman/git/privados/splitmusic/run.sh
+Exec=run.sh
+Path=/opt/splittracks
 Icon=audio-x-generic
 Terminal=false
 Type=Application
