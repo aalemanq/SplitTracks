@@ -13,7 +13,9 @@ Antes de cambiar código, lee `docs/PROJECT_CONTEXT.md`, `docs/DEVELOPMENT.md` y
 - No borres ni resetees cambios del usuario. No uses `git reset --hard` ni `git checkout --` sin autorización.
 - Ramas: trabaja **siempre** en ramas de feature, nunca directamente en `main`.
 - Pregunta antes de mergear. No hagas merge sin confirmación del usuario.
-- Flujo por tarea: feature branch → cambios → validar → commit → preguntar merge → (si aprueba) merge y push.
+- Flujo por tarea: feature branch → validar plan con usuario → cambios → validar → commit → preguntar merge → (si aprueba) merge y push.
+- Antes de escribir código, confirma el diseño con el usuario. No implementes sin clarificar requisitos.
+- Para nuevas funcionalidades: escribe los tests primero (TDD), luego el código que los hace pasar.
 - No muestres código en las respuestas a menos que el usuario lo pida explícitamente. Sé conciso.
 
 ## Ramas del proyecto
@@ -43,6 +45,7 @@ Las ramas `feature/cross-platform` y `feature/windows-port` han sido consolidada
 
 ### Builds y empaquetado
 - `build/build.py`: script genérico de PyInstaller.
+- `build/build-linux.sh`: build + tar.gz portable para Linux.
 - `build/build-windows.bat`: build + ZIP portable para Windows.
 - `build/build-macos.sh`: build .app + DMG para macOS.
 - `run.sh` / `run.bat`: scripts de arranque rápido para desarrollo.
@@ -66,5 +69,13 @@ Las ramas `feature/cross-platform` y `feature/windows-port` han sido consolidada
 - Probar builds en Windows/macOS reales
 - Build Linux (AppImage o tar.gz portable)
 - **Windows**: Bundlear FFmpeg/yt-dlp, probar Demucs desde el .exe, optimizar tamaño
+
+## Principios de calidad
+
+- **Planificar antes de codificar**: valida el diseño con el usuario. No asumas requisitos.
+- **TDD para features nuevas**: escribe el test primero, observa que falle, implementa, verifica que pase.
+- **Commits atómicos**: un cambio lógico por commit. Mensajes claros en español.
+- **Sin archivos monstruo**: si un archivo supera ~500 líneas, considera partirlo.
+- **Revisar antes de merge**: ejecuta `py_compile`, `unittest`, `git diff --check`.
 
 Lee la documentación enlazada antes de proponer una arquitectura nueva.

@@ -22,9 +22,36 @@ Preparación ML:
 Desde la raíz:
 
 ```bash
-python3 -m py_compile analysis.py engine.py harmony.py
+python3 -m py_compile analysis.py engine.py harmony.py server.py launcher.py
 .venv/bin/python -m unittest discover -s tests -v
 git diff --check
+```
+
+### Checklist pre-merge
+
+- [ ] `py_compile` sin errores en todos los `.py` modificados
+- [ ] `unittest discover` pasa todos los tests
+- [ ] `git diff --check` sin trailing whitespace
+- [ ] Ningún archivo nuevo supera ~500 líneas; si lo hace, considerar partirlo
+- [ ] Los cambios de API tienen tests
+- [ ] Las features nuevas siguen TDD (test primero, código después)
+- [ ] El build de Linux produce un tar.gz funcional (`./build/build-linux.sh`)
+
+### TDD para features nuevas
+
+1. Escribe un test que falle (rojo)
+2. Implementa el código mínimo para que pase (verde)
+3. Refactoriza si es necesario, manteniendo tests en verde
+4. Confirma que `unittest discover` sigue pasando
+
+Ejemplo:
+```bash
+# 1. Escribir test en tests/test_nueva_feature.py
+# 2. Verificar que falla
+.venv/bin/python -m unittest tests.test_nueva_feature
+# 3. Implementar feature
+# 4. Verificar que pasa
+.venv/bin/python -m unittest discover -s tests -v
 ```
 
 ## Tests actuales
