@@ -20,6 +20,12 @@ jobs:
           sudo apt-get update -qq
           sudo apt-get install -y -qq ffmpeg
 
+      - name: Download yt-dlp
+        run: |
+          mkdir -p bin
+          curl -sSLo bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp
+          chmod +x bin/yt-dlp
+
       - name: Install ML deps
         run: |
           python -m venv .venv
@@ -54,6 +60,12 @@ jobs:
       - name: Install system deps
         run: brew install ffmpeg
 
+      - name: Download yt-dlp
+        run: |
+          mkdir -p bin
+          curl -sSLo bin/yt-dlp https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp_macos
+          chmod +x bin/yt-dlp
+
       - name: Install ML deps
         run: |
           python -m venv .venv
@@ -86,6 +98,12 @@ jobs:
 
       - name: Install system deps
         run: choco install ffmpeg -y
+
+      - name: Download yt-dlp
+        run: |
+          mkdir -p bin
+          curl -sSLo bin/yt-dlp.exe https://github.com/yt-dlp/yt-dlp/releases/latest/download/yt-dlp.exe
+        shell: cmd
 
       - name: Install ML deps
         run: |

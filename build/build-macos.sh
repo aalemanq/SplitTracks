@@ -3,55 +3,50 @@
 # Requirements: Python 3, PyInstaller, create-dmg (brew install create-dmg)
 set -euo pipefail
 
-cd "$(dirname "$0")/.."
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+ROOT="$(dirname "$SCRIPT_DIR")"
+cd "$ROOT"
 
 APP_NAME="SplitTracks"
 VENV_PYTHON=".venv/bin/python"
-DIST="dist/$APP_NAME-macos"
+VERSION="${SPLITTRACKS_VERSION:-0.1.0}"
+DIST="dist/${APP_NAME}-macos"
 BUNDLE="$DIST/$APP_NAME.app"
 
 echo "=== Building Split Tracks for macOS ==="
 
-# 1. Install dependencies
-echo "[1/5] Installing dependencies..."
-$VENV_PYTHON -m pip install -q -r requirements-web.txt pyinstaller
+# 1. Core build using shared build.py
+echo "[1/4] Building with PyInstaller..."
+$VENV_PYTHON build/build.py
 
-# 2. Build with PyInstaller
-echo "[2/5] Building .app bundle..."
-$VENV_PYTHON -m PyInstaller \
-  --onedir \
-  --name "$APP_NAME" \
-  --add-data "static:static" \
-  --distpath "$DIST" \
-  --workpath "$DIST/build" \
-  --specpath "$DIST" \
-  --noconfirm \
-  --clean \
-  --windowed \
-  --osx-bundle-identifier "com.splittracks.app" \
-  launcher.py
+# build.py outputs to dist/SplitTracks-darwin/
+SRC_DIR="dist/${APP_NAME}-darwin"
 
-# 3. Copy binary tools into bundle
-echo "[3/5] Bundling tools..."
-RESOURCES="$BUNDLE/Contents/Resources"
-mkdir -p "$RESOURCES/bin"
+# 2. Create .app bundle structure
+echo "[2/4] Creating .app bundle..."
+mkdir -p "$BUNDLE/Contents/MacOS"
+mkdir -p "$BUNDLE/Contents/Resources"
 
-# yt-dlp
-YTDLP="bin/yt-dlp"
-[ -f "$YTDLP" ] && cp "$YTDLP" "$RESOURCES/bin/"
-
-# FFmpeg from system or homebrew
-if command -v ffmpeg &>/dev/null; then
-  cp "$(command -v ffmpeg)" "$RESOURCES/bin/" 2>/dev/null || true
-  cp "$(command -v ffprobe)" "$RESOURCES/bin/" 2>/dev/null || true
-elif [ -f "/opt/homebrew/bin/ffmpeg" ]; then
-  cp /opt/homebrew/bin/ffmpeg "$RESOURCES/bin/"
-  cp /opt/homebrew/bin/ffprobe "$RESOURCES/bin/"
+# Move everything into Resources
+if [ -d "$SRC_DIR" ]; then
+  for item in "$SRC_DIR"/*; do
+    mv "$item" "$BUNDLE/Contents/Resources/" 2>/dev/null || true
+  done
+  rm -rf "$SRC_DIR"
 fi
 
-# 4. Create Info.plist
-echo "[4/5] Writing Info.plist..."
-cat > "$BUNDLE/Contents/Info.plist" << 'PLIST'
+# Wrapper script in MacOS that launches from Resources
+cat > "$BUNDLE/Contents/MacOS/$APP_NAME" << 'WRAPPER'
+#!/bin/bash
+DIR="$(cd "$(dirname "$0")" && pwd)"
+cd "$DIR/../Resources"
+exec "./SplitTracks"
+WRAPPER
+chmod +x "$BUNDLE/Contents/MacOS/$APP_NAME"
+
+# 3. Info.plist
+echo "[3/4] Writing Info.plist..."
+cat > "$BUNDLE/Contents/Info.plist" << PLIST
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -61,23 +56,21 @@ cat > "$BUNDLE/Contents/Info.plist" << 'PLIST'
   <key>CFBundleIdentifier</key>
   <string>com.splittracks.app</string>
   <key>CFBundleVersion</key>
-  <string>1.0.0</string>
+  <string>$VERSION</string>
   <key>CFBundleExecutable</key>
-  <string>SplitTracks</string>
+  <string>$APP_NAME</string>
   <key>CFBundlePackageType</key>
   <string>APPL</string>
   <key>LSMinimumSystemVersion</key>
   <string>11.0</string>
   <key>NSHighResolutionCapable</key>
   <true/>
-  <key>CFBundleIconFile</key>
-  <string>icon.icns</string>
 </dict>
 </plist>
 PLIST
 
-# 5. Create DMG
-echo "[5/5] Creating DMG..."
+# 4. DMG
+echo "[4/4] Creating DMG..."
 if command -v create-dmg &>/dev/null; then
   create-dmg \
     --volname "Split Tracks" \
@@ -86,13 +79,10 @@ if command -v create-dmg &>/dev/null; then
     --app-drop-link 425 180 \
     "$DIST/SplitTracks-macOS.dmg" \
     "$BUNDLE" 2>/dev/null
-  echo "DMG created: $DIST/SplitTracks-macOS.dmg"
+  echo "DMG: $DIST/SplitTracks-macOS.dmg"
 else
   echo "create-dmg not found. Install with: brew install create-dmg"
-  echo "App bundle is at: $BUNDLE"
+  echo "App bundle: $BUNDLE"
 fi
 
-echo ""
-echo "=== Done! ==="
-echo "Bundle: $BUNDLE"
-[ -f "$DIST/SplitTracks-macOS.dmg" ] && echo "DMG: $DIST/SplitTracks-macOS.dmg"
+echo "=== Done ==="
