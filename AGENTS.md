@@ -57,18 +57,17 @@ Las ramas `feature/cross-platform` y `feature/windows-port` han sido consolidada
 - **Servidor**: `.venv/bin/python server.py` → http://localhost:8745
 - **Funcionalidades completas**: carga YouTube/archivo, Demucs, mixer, mute/solo/vol, pitch (SoundTouchJS), acordes Cifra Club, grados, métricas, export MP3
 - **Jobs en memoria**: se pierden al reiniciar el servidor
-- **Sin waveform real** (placeholder visual)
-- **Builds Windows** en desarrollo (testear en máquina real, bundlear FFmpeg/yt-dlp)
+- **Waveform + espectro**: pre-renderizado de peaks por pista + espectro en tiempo real + VU meters
+- **CI/CD**: GitHub Actions para releases automáticos (Windows + Linux)
+- **Build Windows**: .exe portable con FFmpeg/yt-dlp bundleados
+- **Build Linux**: tar.gz portable
+- **Botón Salir**: cierra el servidor desde la UI
 
 ## Pendiente conocido
 
-- Visualizador de espectro por track (AnalyserNode + canvas)
 - Persistencia de jobs en disco
-- Waveform real
-- CI/CD con GitHub Actions para releases automáticos
-- Probar builds en Windows/macOS reales
-- Build Linux (AppImage o tar.gz portable)
-- **Windows**: Bundlear FFmpeg/yt-dlp, probar Demucs desde el .exe, optimizar tamaño
+- Probar build macOS
+- Optimizar tamaño del bundle
 
 ## Principios de calidad
 
