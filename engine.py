@@ -582,13 +582,12 @@ class SeparationEngine:
                             cmd = ["cmd", "/c", str(bundled), "-c", "import demucs"]
                         else:
                             cmd = [str(bundled), "-c", "import demucs"]
-                        env = {}
-                        for k in ("SYSTEMROOT", "PATH", "TEMP", "TMP"):
-                            if k in os.environ:
-                                env[k] = os.environ[k]
-                        if IS_WINDOWS:
-                            env["PYTHONHOME"] = str(base_dir / "_internal" / "python3.12")
-                            env["PYTHONPATH"] = str(base_dir / ".venv" / "Lib" / "site-packages")
+                        env = os.environ.copy()
+                        if IS_WINDOWS and frozen:
+                            internal = base_dir / "_internal" / "python3.12"
+                            if internal.exists():
+                                env["PYTHONHOME"] = str(internal)
+                                env["PYTHONPATH"] = str(base_dir / ".venv" / "Lib" / "site-packages")
                         check = subprocess.run(
                             cmd,
                             check=False,
